@@ -12,10 +12,10 @@ nazwy = []
 numery = []
 
 for i in range(300):
-    nazwa = data[i][0]+".laz"
+    nazwa = data[i][0]+".las"
     nazwy.append(nazwa)
 
-    numer = str(i) + ".laz"
+    numer = str(i) + ".las"
     numery.append(numer)
 
 nazwy_modified = [item.replace("/", "_") for item in nazwy]
@@ -50,8 +50,8 @@ def rename_files(directory_path, name_mapping, output_path):
             print(f"Renamed: {filename} to {new_filename}")
 
 # Example usage
-directory_path = r'D:\Spychowo\CLIPPING\out'
-output_path = r'D:\Spychowo\CLIPPING\out\2'
+directory_path = r'D:\Spychowo\CLIPPING\out\copy'
+output_path = r'D:\Spychowo\CLIPPING\out\1'
 
 rename_files(directory_path, name_mapping, output_path)
 
