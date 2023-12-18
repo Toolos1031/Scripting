@@ -1,6 +1,5 @@
 import csv
 import os
-import random
 
 file = open(r"D:\Spychowo\CLIPPING\unikalne_id_2.csv", "r")
 data = list(csv.reader(file, delimiter=","))
