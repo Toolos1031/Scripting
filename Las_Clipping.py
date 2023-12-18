@@ -28,13 +28,13 @@ def clip_las(las_file_path, shapefile_path, output_path):
         inside_points = las.points[inside].copy()
 
         print(f"Started clipping {index}.las")
-        """
+        
         output_file = laspy.LasData(las.header)
         output_file.points = inside_points
         end = f"{index}.las"
         output = os.path.join(output_path, end)
         output_file.write(output)
-        """
+        
 
 las_file_path = r"D:\Spychowo\CLIPPING\flights.las"
 shapefile_path = r"D:\Spychowo\CLIPPING\clip_6.shp"
