@@ -53,5 +53,7 @@ def rename_files(directory_path, name_mapping, output_path):
 directory_path = r'D:\Spychowo\CLIPPING\out\copy'
 output_path = r'D:\Spychowo\CLIPPING\out\1'
 
+#TESTING
+
 rename_files(directory_path, name_mapping, output_path)
 
