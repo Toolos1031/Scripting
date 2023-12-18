@@ -1,9 +1,8 @@
 import laspy
 import geopandas as gpd
-from shapely.geometry import box
-import numpy as np
 import time
 import os
+from tqdm import tqdm
 
 start = time.time()
 
@@ -15,8 +14,7 @@ def clip_las(las_file_path, shapefile_path, output_path):
     #read Shapefile
     shapefile = gpd.read_file(shapefile_path)
 
-
-    for index, rows in shapefile.iterrows():
+    for index, rows in tqdm(shapefile.iterrows(), total=len(shapefile)):
         
         x1 = rows['geometry'].bounds[0]
         x2 = rows['geometry'].bounds[2]
@@ -27,7 +25,8 @@ def clip_las(las_file_path, shapefile_path, output_path):
         inside = (las.x >= x1) & (las.x <= x2) & (las.y >= y1) & (las.y <= y2)
         inside_points = las.points[inside].copy()
 
-        print(f"Started clipping {index}.las")
+        #print(f"Started clipping {index}.las")
+        
         
         output_file = laspy.LasData(las.header)
         output_file.points = inside_points
