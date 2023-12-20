@@ -8,7 +8,7 @@ class MainWindow(QWidget):
         super().__init__(*args, **kwargs)
 
         #Set window title
-        self.setWindowTitle("QFormLayout")
+        self.setWindowTitle("Checkbox")
         
         #set layout
         layout = QGridLayout()
