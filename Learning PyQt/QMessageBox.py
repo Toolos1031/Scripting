@@ -8,7 +8,7 @@ class MainWindow(QWidget):
         super().__init__(*args, **kwargs)
 
         #Set window title
-        self.setWindowTitle("Combobox")
+        self.setWindowTitle("QMessageBox")
         
         #set layout
         layout = QHBoxLayout()
