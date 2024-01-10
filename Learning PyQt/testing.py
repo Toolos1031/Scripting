@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from osgeo import gdal
 import os
+import threading
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
@@ -84,56 +85,49 @@ class MainWindow(QMainWindow):
             "Warning",
             f"{text}"
         )
-    
-class translate:
-    
-    def __init__(self, display):
-        self._display = display
-
-    def changeExtension(self):
-        extension = ".gpkg"
-        input = self._display.getInput()
-        output = self._display.getOutput()
-        target = None
-        if input != "Select an input file" and output != "Select an output directory":
-            split_path = os.path.split(input)
-            split_text = os.path.splitext(split_path[1])
-            new_file = split_text[0]+extension
-            target = os.path.join(output, new_file)
-        else:
-            self._display.warning("Select input and output first")
         
-        return target
+def changeExtension(input, output):
+    extension = ".gpkg"
+    target = None
+    if input != "Select an input file" and output != "Select an output directory":
+        split_path = os.path.split(input)
+        split_text = os.path.splitext(split_path[1])
+        new_file = split_text[0]+extension
+        target = os.path.join(output, new_file)
+    else:
+        MainWindow().warning("Select input and output first")
     
-    def run(self):
-        target = self.changeExtension()
-        output = self._display.getInput()
-
-        if target:
-            print(target, output)
-            translate_options = gdal.TranslateOptions(format = "GPKG", outputSRS = "EPSG:2180", callback = gdal.TermProgress)
-            #gdal.Translate(target, output, options = translate_options)
-
+    return target
     
+def run(input, output):
+    target = changeExtension(input, output)
+
+    if target:
+        translate_options = gdal.TranslateOptions(format = "GPKG", outputSRS = "EPSG:2180", callback = gdal.TermProgress)
+        gdal.Translate(target, input, options = translate_options)
+
+def runInThread(input, output):
+    thread = threading.Thread(target = run, args = (input, output))
+    thread.start()
+
 class Logic:
 
-    def __init__(self, model, view):
+    def __init__(self, view, thread):
         self._view = view
-        self._model = model
+        self._thread = thread
         self._connectSignalsAndSlots()
 
     def _connectSignalsAndSlots(self):
         self._view.browse_button.clicked.connect(self._view.fileDialog)
         self._view.dir_button.clicked.connect(self._view.directoryDialog)
         self._view.clear_button.clicked.connect(self._view.clearText)
-        self._view.start_button.clicked.connect(self._model.run)
-        
+        self._view.start_button.clicked.connect(lambda: self._thread(self._view.getInput(), self._view.getOutput()))
+
 def main():
     myApp = QApplication([])
     window = MainWindow()
     window.show()
-    trans = translate(display = window)
-    Logic(model = trans, view = window)
+    Logic(view = window, thread = runInThread)
     sys.exit(myApp.exec())
 
 if __name__ == "__main__":
