@@ -8,6 +8,18 @@ import threading
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
+class WorkerThread(QThread):
+    finished = pyqtSignal()
+
+    def __init__(self, model, input_val, output_val):
+        super().__init__()
+        self._model = model
+        self._input_val = input_val
+        self._output_val = output_val
+
+    def run(self):
+        self._model(self._input_val, self._output_val)
+        #self.finished.emit()
 
 class MainWindow(QMainWindow):
 
@@ -107,27 +119,32 @@ def run(input, output):
         gdal.Translate(target, input, options = translate_options)
 
 def runInThread(input, output):
-    thread = threading.Thread(target = run, args = (input, output))
-    thread.start()
+    worker_thread = WorkerThread(run, input, output)
+    #worker_thread.finished.connect(worker_thread.deleteLater)
+    #worker_thread.finished.connect(threadFinished)
+    worker_thread.start()
+
+def threadFinished(self):
+    print("Thread finished")
 
 class Logic:
 
-    def __init__(self, view, thread):
+    def __init__(self, model, view):
         self._view = view
-        self._thread = thread
+        self._model = model
         self._connectSignalsAndSlots()
 
     def _connectSignalsAndSlots(self):
         self._view.browse_button.clicked.connect(self._view.fileDialog)
         self._view.dir_button.clicked.connect(self._view.directoryDialog)
         self._view.clear_button.clicked.connect(self._view.clearText)
-        self._view.start_button.clicked.connect(lambda: self._thread(self._view.getInput(), self._view.getOutput()))
+        self._view.start_button.clicked.connect(lambda: self._model(self._view.getInput(), self._view.getOutput()))
 
 def main():
     myApp = QApplication([])
     window = MainWindow()
     window.show()
-    Logic(view = window, thread = runInThread)
+    Logic(view = window, model = runInThread)
     sys.exit(myApp.exec())
 
 if __name__ == "__main__":
