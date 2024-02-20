@@ -2,55 +2,61 @@ import laspy
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import numpy as np
+from datetime import datetime
 
 
-# Load your LAS file
-file_path = r'D:\woodfast\staszow\staszow_2000.las'
+# LOAD FILES
+file_path = r'D:\Python\cloud.las'
 las = laspy.read(file_path)
 
-csv_path = r"D:\woodfast\staszow\sbet.csv"
-trajectory = pd.read_csv(csv_path, sep=";")
+column_names = ["Time", "Latitude", "Longitude", "Altitude", "Vel-Xb", "Vel-Yb", "Vel-Zb", "Roll", "Pitch", "Yaw", "Wander", "Accel-Xb", "Accel-Yb", "Accel-Zb", "ARate-Xb", "ARate-Yb", "ARate-Zb"]
+csv_path = r"D:\Python\sbet.csv"
+trajectory = pd.read_csv(csv_path, delim_whitespace= True, header=None, skiprows=2)
+trajectory.columns = column_names
 
-# Display a summary of the LAS file
-#print("File Summary:")
-#print(f"Point Format: {las.header.point_format}")
-#print(f"Number of points: {las.header.point_count}")
-#print(f"Available dimensions: {las.point_format.dimension_names}")
+trajectory["Latitude"] = np.degrees(trajectory["Latitude"])
+trajectory["Longitude"] = np.degrees(trajectory["Longitude"])
+trajectory["Roll"] = np.degrees(trajectory["Roll"])
+trajectory["Pitch"] = np.degrees(trajectory["Pitch"])
+trajectory["Yaw"] = np.degrees(trajectory["Yaw"])
 
-# Optionally, display some statistics for each dimension
-"""
-print("\nSome statistics for each dimension:")
-for dimension in las.point_format.dimension_names:
-    min_val = las[dimension].min()
-    max_val = las[dimension].max()
-    print(f"{dimension}: Min = {min_val}, Max = {max_val}")
-"""
+trajectory.to_csv(r"D:\Python\sbet_conv.csv")
 
+# CONVERT GPS TO UTC
+gps_epoch = datetime(1980, 1, 6)
+my_date = datetime(2024, 1, 5)
 
-time = las["gps_time"].max() - las["gps_time"].min()
-time_SOW_start = las["gps_time"].min() - 390435218
-time_SOW_end = las["gps_time"].max() - 390435218
-#print(time)
-#print(time_SOW_start, time_SOW_start + 18)
-#print(time_SOW_end, time_SOW_end + 18)
+difference = my_date - gps_epoch
+gps_week_number = difference.days // 7
 
-#print(trajectory.iloc[0])
-#print(trajectory["Time"])
+seconds_in_week = 604800
+time_offset = 18 #Offest between UTC and GPS
 
-new_df = trajectory[(trajectory["Time"] >= (time_SOW_start + 18)) & (trajectory["Time"] <= (time_SOW_end + 18))]
-print(new_df)
+SOW_time = gps_week_number * seconds_in_week + time_offset - 1000000000
 
-start_yaw = (new_df.iloc[0, 6])
+# CONVERT TIME
+time_SOW_start = las["gps_time"].min() - SOW_time #Time from start of the week
+time_SOW_end = las["gps_time"].max() - SOW_time
+
+# CONVERT TRAJECTORY DATAFRAMES
+new_df = trajectory[(trajectory["Time"] >= (time_SOW_start + time_offset)) & (trajectory["Time"] <= (time_SOW_end + time_offset))] #Trajectory with scans only
+
+start_yaw = (new_df.iloc[0, 9]) #Pick a starting yaw value
 second_yaw = start_yaw + 180
 
-first_direction = new_df[(new_df["Yaw"] >= (start_yaw - 6)) & (new_df["Yaw"] <= (start_yaw + 6))]
-print(first_direction)
+if second_yaw > 180:
+    second_yaw = second_yaw - 360
 
-second_direction = new_df[(new_df["Yaw"] >= (second_yaw - 6)) & (new_df["Yaw"] <= (second_yaw + 6))]
-print(second_direction)
+yaw_deviation = 6
+
+first_direction = new_df[(new_df["Yaw"] >= (start_yaw - yaw_deviation)) & (new_df["Yaw"] <= (start_yaw + yaw_deviation))]
+
+second_direction = new_df[(new_df["Yaw"] >= (second_yaw - yaw_deviation)) & (new_df["Yaw"] <= (second_yaw + yaw_deviation))]
 
 
 
+"""
 fig, axs = plt.subplots(1, 3, figsize = (18, 6), sharex = True, sharey = True)
 
 
@@ -62,20 +68,20 @@ axs[2].plot(second_direction["Longitude"], second_direction["Latitude"], "g-", l
 axs[2].scatter(second_direction["Longitude"], second_direction["Latitude"], c="green", label = "second_direction")
 
 plt.tight_layout()
-#plt.show()
+plt.show()
 
-#new_df.to_csv(r"D:\woodfast\staszow\sbet_clip.csv")
+"""
 
-a = first_direction.iloc[0, 0]
+# FIND BREAKPOINTS IN TRAJECTORY
+a = first_direction.iloc[0, 0] #Pick the first point in the trajectory
 gap_first = []
-for row in first_direction["Time"]:
+for row in first_direction["Time"]: #For each row compare it to the previous one and check the time difference
     if row - a > 3:
         gap_first.append(row)
         gap_first.append(a)
     a = row
-gap_first.append(first_direction.iloc[0, 0])
+gap_first.append(first_direction.iloc[0, 0]) #For good measure add the first and last point
 gap_first.append(first_direction.iloc[-1, 0])
-print("Gaps in first direction", gap_first)
 
 b = second_direction.iloc[0, 0]
 gap_second = []
@@ -86,26 +92,24 @@ for row in second_direction["Time"]:
     b = row
 gap_second.append(second_direction.iloc[0, 0])
 gap_second.append(second_direction.iloc[-1, 0])
-print("Gaps in second direction", gap_second)
 
-
-gaps = [new_df.iloc[0, 0], new_df.iloc[-1, 0]]
+gaps = [new_df.iloc[0, 0], new_df.iloc[-1, 0]] #Add first and the last point of the main trajectory as well
 gaps = gaps + gap_first + gap_second
 
+# CLEAN UP COLLECTED BREAKPOINTS
 no_dupes = []
 
-for item in gaps:
+for item in gaps: #Delete duplicates
     if item not in no_dupes:
         no_dupes.append(item)
 
 no_dupes.sort()
 
-print(no_dupes)
-
+# CLIP POINT CLOUD USING BREAKPOINTS
 for time_loc in range(len(no_dupes)):
     try:
-        start = no_dupes[time_loc] + 390435218 - 18
-        end = no_dupes[time_loc + 1] + 390435218 - 18
+        start = no_dupes[time_loc] + SOW_time - time_offset
+        end = no_dupes[time_loc + 1] + SOW_time - time_offset
     except:
         continue
     
@@ -113,7 +117,7 @@ for time_loc in range(len(no_dupes)):
     swath_las = laspy.LasData(las.header)
     swath_las.points = swath
 
-    output_path = r"D:\woodfast\staszow\PY"
+    output_path = r"D:\Python\out"
     extension = f"{int(time_loc)}.las"
     output = os.path.join(output_path, extension)
 
