@@ -7,11 +7,11 @@ from datetime import datetime
 
 
 # LOAD FILES
-file_path = r'D:\Python\cloud.las'
+file_path = r'D:\Orlen\Nowa Sol\Cloud\mapping_raw.las'
 las = laspy.read(file_path)
 
 column_names = ["Time", "Latitude", "Longitude", "Altitude", "Vel-Xb", "Vel-Yb", "Vel-Zb", "Roll", "Pitch", "Yaw", "Wander", "Accel-Xb", "Accel-Yb", "Accel-Zb", "ARate-Xb", "ARate-Yb", "ARate-Zb"]
-csv_path = r"D:\Python\sbet.csv"
+csv_path = r"D:\Orlen\Nowa Sol\Cloud\sbet.csv"
 trajectory = pd.read_csv(csv_path, delim_whitespace= True, header=None, skiprows=2)
 trajectory.columns = column_names
 
@@ -21,11 +21,11 @@ trajectory["Roll"] = np.degrees(trajectory["Roll"])
 trajectory["Pitch"] = np.degrees(trajectory["Pitch"])
 trajectory["Yaw"] = np.degrees(trajectory["Yaw"])
 
-trajectory.to_csv(r"D:\Python\sbet_conv.csv")
+trajectory.to_csv(r"D:\Orlen\Nowa Sol\Cloud\sbet_conv.csv")
 
 # CONVERT GPS TO UTC
 gps_epoch = datetime(1980, 1, 6)
-my_date = datetime(2024, 1, 5)
+my_date = datetime(2024, 2, 23)
 
 difference = my_date - gps_epoch
 gps_week_number = difference.days // 7
@@ -117,7 +117,7 @@ for time_loc in range(len(no_dupes)):
     swath_las = laspy.LasData(las.header)
     swath_las.points = swath
 
-    output_path = r"D:\Python\out"
+    output_path = r"D:\Orlen\Nowa Sol\Cloud\out"
     extension = f"{int(time_loc)}.las"
     output = os.path.join(output_path, extension)
 
