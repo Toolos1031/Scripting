@@ -1,15 +1,8 @@
-e = "1"
-dir = {
-    "a" : 1,
-    "b" : 2,
-    "c" : 3,
-    "d" : 4,
-    e : 5
-    }
-print(dir)
-print(min(dir))
+import os
 
-min_dir = min(dir)
+name = "1.las"
 
-min_values = [key for key, value in dir.items() if value == min(dir.values())]
-print(min_values[0])
+
+split = os.path.splitext(name)
+
+print(split[0])
