@@ -48,7 +48,7 @@ for cloud in chunk.point_clouds:
     task.source_class = source
     task.target_classes = target
     task.point_cloud = cloud
-    task.confidence = 0.01
+    task.confidence = 0.4
     task.apply(chunk)
     doc.save()
     new_name = clean_name(str(cloud))
