@@ -52,5 +52,5 @@ for cloud in chunk.point_clouds:
     task.apply(chunk)
     doc.save()
     new_name = clean_name(str(cloud))
-    chunk.exportPointCloud(path = output_folder + f"\{new_name}.las", point_cloud = a, crs = Metashape.CoordinateSystem("EPSG::2177"))
+    chunk.exportPointCloud(path = output_folder + "\export" + f"\{new_name}.las", point_cloud = a, crs = Metashape.CoordinateSystem("EPSG::2177"))
     a += 1
