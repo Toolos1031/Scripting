@@ -10,9 +10,11 @@ output_path = r"D:\Atlasus\3_ground_class"
 all_files = []
 
 def classify(cloud):
-    las = laspy.read(cloud)
-    points = las.points
-    xyz = np.vstack((las.x, las.y, las.z)).transpose()
+    print("STARTED CLASSIFING")
+    
+    print(cloud.header)
+
+    xyz = np.vstack((cloud.x, cloud.y, cloud.z)).transpose()
 
     csf = CSF.CSF()
 
@@ -27,11 +29,13 @@ def classify(cloud):
 
     csf.do_filtering(ground, non_ground)
 
-    ground_las = laspy.LasData(las.header)
-    ground_las.points = points[np.array(ground)]
+    print(ground)
 
-    non_ground_las = laspy.LasData(las.header)
-    non_ground_las.points = points[np.array(non_ground)]
+    ground_las = laspy.LasData(cloud.header)
+    ground_las.points = cloud.points[np.array(ground)]
+
+    non_ground_las = laspy.LasData(cloud.header)
+    non_ground_las.points = cloud.points[np.array(non_ground)]
 
     ground_las.classification[:] = 2
     non_ground_las.classification[:] = 1
@@ -46,26 +50,41 @@ for file1 in all_files:
     path = os.path.join(input_path, file1)
     output = os.path.join(output_path, file1)
     las = laspy.read(path)
+    print(las.header)
+    print("IMPORTED LAS")
 
-    roads = las.classification == 11
-    road_points = laspy.LasData(las.header)
-    road_points = las.points[roads].copy()
+    roads = (las.classification == 11)
+    road = laspy.LasData(las.header)
+    #road.points = las.points[roads].copy()
+    road.points = las.points[np.array(roads)]
+    print("FILTERED ROADS")
 
-    rest = las.classification != 11
-    rest_points = laspy.LasData(las.header)
-    rest_points = las.points[rest].copy()
+    the_rest = (las.classification != 11)
+    rest = laspy.LasData(las.header)
+    #rest.points = las.points[the_rest].copy()
+    rest.points = las.points[np.array(the_rest)]
+    print(rest.header)
+    print("FILTERED REST")
+
 
     rest.classification[:] = 0
-
     ground, non_ground = classify(rest)
 
     ground.classification[:] = 2
     non_ground.classification[:] = 1
 
-    roads.write("D:\Atlasus\3_ground_class\temp")
+    r = r"D:\Atlasus\3_ground_class\temp\roads.las"
+    g = r"D:\Atlasus\3_ground_class\temp\ground.las"
+    ng = r"D:\Atlasus\3_ground_class\temp\non_ground.las"
 
-    i1 = ""
-    i2
-    i3
+    road.write(r)
+    ground.write(g)
+    non_ground.write(ng)
 
-    cmd = "las2las -i 
+    cmd = f"las2las -i {r} {g} {ng} -merged -o {output}"
+
+    os.popen(cmd)
+
+    #os.remove(r)
+    #os.remove(g)
+    #os.remove(ng)

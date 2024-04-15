@@ -3,8 +3,8 @@ import numpy as np
 import CSF
 import os
 
-input_path = r"D:\TerraSolid\atlasus"
-out = r"D:\TerraSolid\atlasus\out\2"
+input_path = r"D:\Atlasus\2_Agi_export\export"
+out = r"D:\TerraSolid\pkp\out"
 
 all_files = []
 
@@ -15,10 +15,12 @@ for file in all_files:
     name = os.path.join(input_path, file)
 
     las = laspy.read(name)
+    print(las.x)
     points = las.points
+    print(points)
     xyz = np.vstack((las.x, las.y, las.z)).transpose()
 
-    csf = CSF.CSF()
+    #csf = CSF.CSF()
 
     csf.params.bSloopSmooth = True
     csf.params.cloth_resolution = 0.5
