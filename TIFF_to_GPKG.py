@@ -54,7 +54,7 @@ def gpkg_conversion(file_list, path):
         new_file = split_file[0] + extension
         target = os.path.join(path, new_file)
 
-        translate_options = gdal.TranslateOptions(format = "GPKG", outputSRS = "EPSG:2180", callback = gdal.TermProgress)
+        translate_options = gdal.TranslateOptions(format = "GPKG", outputSRS = "EPSG:2177", callback = gdal.TermProgress)
         gpkg = gdal.Translate(target, source, options = translate_options)
         gpkg = None
 
