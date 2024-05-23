@@ -2,9 +2,9 @@ import os
 from osgeo import gdal
 
 # Empty lists
-files = []
-converted = []
-built_overview = []
+tif_files = []
+converted_files = []
+built_overviews = []
 
 # Some inputs
 gdal.TermProgress = gdal.TermProgress_nocb
@@ -18,9 +18,10 @@ print("The program won't start untill you set the directory properly \n")
 print("---------------------------------------------------------------------------------- \n \n")
 
 
-def user_input():
+def get_user_input():
+    """Prompt user to enter a directory path and validate it"""
     while True:
-        path = input("Enter a directory with files to convert            Example : C:\ProgramFiles\Data\Files \n \n")
+        path = input("Enter a directory with files to convert (e.g., C:\\ProgramFiles\\Data\\Files): \n")
         if os.path.isdir(path):
             if not os.listdir(path):
                 print("Directory is empty")
@@ -31,60 +32,61 @@ def user_input():
             print("Select a proper directory")
     return path
 
-def files_list(path):
+def list_tif_files(path):
+     """List all .tif files in the given directory"""
      for file in os.listdir(path):
         if file.endswith(".tif"):
-             files.append(file)
+             tif_files.append(file)
 
-     if not files:
+     if not tif_files:
          print("No .tif files to convert")
-         empty = True
-     else:
-         empty = False
+         return True
+     return False
 
-     return empty
-
-def gpkg_conversion(file_list, path):
+def convert_to_gpkg(file_list, path, epsg_code):
+    """Convert .tif files to .gpkg format"""
     for file in file_list:
         print(f"Started converting {file}")
-
-        extension = ".gpkg"
         source = os.path.join(path, file)
-        split_file = os.path.splitext(file)
-        new_file = split_file[0] + extension
-        target = os.path.join(path, new_file)
+        target = os.path.join(path, os.path.splitext(file)[0] + ".gpkg")
 
-        translate_options = gdal.TranslateOptions(format = "GPKG", outputSRS = "EPSG:2177", callback = gdal.TermProgress)
-        gpkg = gdal.Translate(target, source, options = translate_options)
-        gpkg = None
+        try:
+            translate_options = gdal.TranslateOptions(format = "GPKG", outputSRS = f"EPSG:{epsg_code}", callback = gdal.TermProgress)
+            gdal.Translate(target, source, options = translate_options)
+            converted_files.append(target)
+            print(f"Finished converting {target}")
+        except Exception as e:
+            print(f"Error converting {file}: {e}")
 
-        converted.append(target)
-        print(f"Finished converting {target}")
-
-def overview_generation(converted):
-    for file in converted:
+def generate_overviews(converted_files):
+    """Generate overviews for converted .gpkg files"""
+    for file in converted_files:
         print(f"Started building overviews for {file}")
 
-        overview = gdal.Open(file, 1)
-        gdal.SetConfigOption("COMPRESS_OVERVIEW", "LZW")
-        overview.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64], gdal.TermProgress)
-        del overview
-
-        built_overview.append(file)
-        print(f"Finished building overviews for {file}")
+        try:
+            overview = gdal.Open(file, 1)
+            gdal.SetConfigOption("COMPRESS_OVERVIEW", "LZW")
+            overview.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64], gdal.TermProgress)
+            del overview
+            built_overviews.append(file)
+            print(f"Finished building overviews for {file}")
+        except Exception as e:
+            print(f"Error building overviews for {file}: {e}")
 
 def main():
-    folder_path = user_input()
-    empty = files_list(folder_path)
-    if empty:
+    """Main function to orchestrate the conversion process"""
+    folder_path = get_user_input()
+    if list_tif_files(folder_path):
         main()
-    input(f"\n \n Found {len(files)} files. Press any key to continue. \n \n Press Ctrl + C to abort \n \n")
-    gpkg_conversion(files, folder_path)
-    overview_generation(converted)
-    print(f"We started with {files}")
-    print(f"We converted following files {converted}")
-    print(f"We calculated overviews for following files {built_overview}")
+        return
+    epsg_code = input("Enter an EPSG code (e.g. 2180) \n")
+    input(f"\n \n Found {len(tif_files)} files. Press any key to continue. \n \n Press Ctrl + C to abort \n \n")
+    convert_to_gpkg(tif_files, folder_path, epsg_code)
+    generate_overviews(converted_files)
+    print(f"Started with {tif_files}")
+    print(f"Converted following files {converted_files}")
+    print(f"Built overviews for following files {built_overviews}")
 
-main()
-
-input("\n \n \n PROCESSING DONE, PRESS ANY KEY TO EXIT \n \n \n")
+if __name__ == "__main__":
+    main()
+    input("\n \n \n PROCESSING DONE, PRESS ANY KEY TO EXIT \n \n \n")
