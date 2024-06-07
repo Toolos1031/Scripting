@@ -7,8 +7,8 @@ import subprocess
 #input_path = r"D:\Atlasus\2_Agi_export\export"
 #output_path = r"D:\Atlasus\3_ground_class"
 
-input_path = r"D:\TerraSolid\chc\test"
-output_path = r"D:\TerraSolid\chc\test\ground"
+input_path = r"D:\Atlasus\Testy_skaningu\2_Agi_export\export"
+output_path = r"D:\Atlasus\Testy_skaningu\3_ground_class"
 
 all_files = []
 
@@ -81,9 +81,9 @@ for file1 in all_files:
     #g = r"D:\Atlasus\3_ground_class\temp\ground.las"
     #ng = r"D:\Atlasus\3_ground_class\temp\non_ground.las"
 
-    r = r"D:\TerraSolid\chc\export\temp\roads.las"
-    g = r"D:\TerraSolid\chc\export\temp\ground.las"
-    ng = r"D:\TerraSolid\chc\export\temp\non_ground.las"
+    r = r"D:\Atlasus\Testy_skaningu\3_ground_class\temp\roads.las"
+    g = r"D:\Atlasus\Testy_skaningu\3_ground_class\temp\ground.las"
+    ng = r"D:\Atlasus\Testy_skaningu\3_ground_class\temp\non_ground.las"
 
     road.write(r)
     ground.write(g)

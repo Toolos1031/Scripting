@@ -1,6 +1,6 @@
 import os
 
-directory_path = r"D:\CHC\Out\CHC_20240423142550\Results\Export\@@2024-04-22-141759\ADJUST1\Scanner1"
+directory_path = r"D:\Atlasus\Testy_skaningu\export_las"
 
 output = os.path.join(directory_path, "merged.las")
 

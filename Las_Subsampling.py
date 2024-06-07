@@ -2,13 +2,14 @@ import laspy
 import os
 import numpy as np
 
-input_path = r"D:\Kolej\las clipping\Classified"
-output_path = r"D:\Kolej\las clipping\subsampled2"
+input_path = r"D:\Atlasus\Testy_skaningu\3_ground_class"
+output_path = r"D:\Atlasus\Testy_skaningu\3_ground_class\subsampled"
 
 fraction = 0.4
 
 all_files = []
 
+#2 i 14
 for file in os.listdir(input_path):
     all_files.append(file)
 
@@ -16,6 +17,8 @@ for file in all_files:
     name = os.path.join(input_path, file)
 
     las = laspy.read(name)
+
+    
 
     total_points = len(las.points)
     sample_size = int(total_points * fraction)
@@ -27,6 +30,8 @@ for file in all_files:
     subsampled_las = laspy.LasData(las.header)
     subsampled_las.points = subsampled_points
 
-    output = os.path.join(output_path, file)
+    out_name = "sub" + file
+
+    output = os.path.join(output_path, out_name)
 
     subsampled_las.write(output)
