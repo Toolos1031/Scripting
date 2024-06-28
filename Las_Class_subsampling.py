@@ -2,8 +2,8 @@ import laspy
 import os
 import numpy as np
 
-input_path = r"D:\Atlasus\Testy_skaningu\3_ground_class"
-output_path = r"D:\Atlasus\Testy_skaningu\3_ground_class\subsampled"
+input_path = r"D:\Atlasus\Naloty\Dzien_1\Skaning\Work\3_ground_class"
+output_path = r"D:\Atlasus\Naloty\Dzien_1\Skaning\Work\3_ground_class\subsampled"
 
 fraction = 0.2
 

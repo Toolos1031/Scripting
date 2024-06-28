@@ -1,7 +1,7 @@
 import geopandas as gpd
 import time
 
-gdf = gpd.read_file(r"D:\Wycena_Naloty\ENEA\Kolejnosc\aggregated.gpkg")
+gdf = gpd.read_file(r"D:\Atlasus\Naloty\do_usuwania.gpkg")
 gdf_copy = gdf
 pathway = []
 
@@ -13,8 +13,8 @@ def numbers(feature):
     return feature["Numer"].values[0]
 
 
-start = 481 #starting line
-max_length = 100000  #how long should the segment be
+start = 412 #starting line
+max_length = 5000  #how long should the segment be
 current_length = 0  #value for collecting lengths
 start_line = gdf[gdf["Numer"] == start] #set the starting line
 pathway.append(int(numbers(start_line)))

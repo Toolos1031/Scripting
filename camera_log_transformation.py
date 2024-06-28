@@ -3,11 +3,11 @@ import pandas as pd
 from pyproj import Transformer
 
 
-directory_path = r"D:\Atlasus\FOTO\06_06_2024"
+directory_path = r"E:\ZDJECIA"
 
-front = os.path.join(directory_path, "front_raw.txt")
-rear = os.path.join(directory_path, "rear_raw.txt")
-map = os.path.join(directory_path, "map_raw.txt")
+front = os.path.join(directory_path, "FRONT_raw.txt")
+rear = os.path.join(directory_path, "REAR_raw.txt")
+map = os.path.join(directory_path, "MAP_raw.txt")
 
 out_rear = os.path.join(directory_path, "gpslog_REAR.txt")
 out_front = os.path.join(directory_path, "gpslog_FRONT.txt")
@@ -45,8 +45,8 @@ map_df = map_df.drop("Timestamp", axis = 1)
 map_df = map_df[["Filename", "Easting", "Northing", "H-MSL", "Roll", "Pitch", "Heading"]]
 
 #Changing data in map df
-map_df["Pitch"] = -map_df["Pitch"]
-map_df["Heading"] = map_df["Heading"] + 180
+map_df["Pitch"] = 90
+map_df["Heading"] = front_df["Heading"]
 map_df["H-MSL"] = map_df["H-MSL"] - 40.5
 
 #Changing data in front df
@@ -54,8 +54,8 @@ front_df["Filename"] = front_df["Filename"].str.replace(r'\.JPG$', '', regex=Tru
 front_df["H-MSL"] = map_df["H-MSL"]
 
 #Chaning data in rear df
-rear_df["Roll"] = front_df["Roll"]
-rear_df["Pitch"] = front_df["Pitch"] * -1
+#rear_df["Roll"] = front_df["Roll"]
+#rear_df["Pitch"] = front_df["Pitch"] * -1
 #rear_df["Heading"] = front_df["Heading"] + 180
 rear_df["Filename"] = rear_df["Filename"].str.replace(r'\.JPG$', '', regex=True)
 rear_df["H-MSL"] = map_df["H-MSL"]

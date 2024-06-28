@@ -1,40 +1,76 @@
-import laspy
+"""
 import os
-import numpy as np
+from osgeo import gdal
 
-input_path = r"D:\Atlasus\Testy_skaningu\3_ground_class"
-output_path = r"D:\Atlasus\Testy_skaningu\3_ground_class\subsampled"
+input_directory = r"D:\katowice"
+output_directory = r"D:\katowice\files"
 
-fraction = 0.2
+gdal.TermProgress = gdal.TermProgress_nocb
 
-all_files = []
+if not os.path.exists(output_directory):
+    os.makedirs(output_directory)
 
-#2 i 14
-for file in os.listdir(input_path):
-    if file.endswith(".las"):
-        all_files.append(file)
+for filename in os.listdir(input_directory):
+    if filename.endswith(".tif"):
+        input_file = os.path.join(input_directory, filename)
+        output_file = os.path.join(output_directory, filename)
+        
+        # Get current georeference information
+        ds = gdal.Open(input_file)
+        gt = ds.GetGeoTransform()
+        minx = gt[0]
+        maxy = gt[3]
+        maxx = minx + (ds.RasterXSize * gt[1])
+        miny = maxy + (ds.RasterYSize * gt[5])
+        ds = None
+        print(minx, maxy, maxx, miny)
 
-for file in all_files:
-    name = os.path.join(input_path, file)
+        # Shift X coordinates by 0.04 meters
+        new_miny = miny + 10
+        new_maxy = maxy + 10
 
-    las = laspy.read(name)
+        translate_options = gdal.TranslateOptions(format = "GTiff", callback = gdal.TermProgress, creationOptions = ["COMPRESS=LZW"])
 
-    ground_and_road = (las.classification != 1) 
-    gag = laspy.LasData(las.header)
-    gag.points = las.points[np.array(ground_and_road)]
+        # Apply the shift using gdal_translate
+        #gdal.Translate(output_file, input_file, outputSRS='EPSG:2177', outputBounds=[minx, new_maxy, maxx, new_miny], options = translate_options)
 
-    total_points = len(gag.points)
-    sample_size = int(total_points * fraction)
+print("Shift completed for all files.")
+"""
 
-    random_indices = np.random.choice(total_points, sample_size, replace = False)
+import os
+from osgeo import gdal
 
-    subsampled_points = las.points[random_indices]
+def shift_tiff(input_file, output_file, shift_y):
+    # Open the input file
+    ds = gdal.Open(input_file, gdal.GA_ReadOnly)
+    
+    # Get the current geotransform
+    gt = ds.GetGeoTransform()
+    
+    # Modify the geotransform to shift by shift_y
+    new_gt = (gt[0], gt[1], gt[2], gt[3] + shift_y, gt[4], gt[5])
+    
+    # Create a new file with the modified geotransform
+    driver = gdal.GetDriverByName('GTiff')
+    out_ds = driver.CreateCopy(output_file, ds)
+    out_ds.SetGeoTransform(new_gt)
+    
+    # Close datasets
+    ds = None
+    out_ds = None
 
-    subsampled_las = laspy.LasData(las.header)
-    subsampled_las.points = subsampled_points
+input_directory = r"D:\katowice"
+output_directory = r"D:\katowice\files"
+shift_y = -0.04  # Shift by 10 meters
 
-    out_name = "sub_" + file
+if not os.path.exists(output_directory):
+    os.makedirs(output_directory)
 
-    output = os.path.join(output_path, out_name)
+for filename in os.listdir(input_directory):
+    if filename.endswith(".tif"):
+        input_file = os.path.join(input_directory, filename)
+        output_file = os.path.join(output_directory, filename)
+        
+        shift_tiff(input_file, output_file, shift_y)
 
-    subsampled_las.write(output)
+print("Shift completed for all files.")

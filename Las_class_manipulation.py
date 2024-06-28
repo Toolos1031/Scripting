@@ -7,10 +7,12 @@ import subprocess
 #input_path = r"D:\Atlasus\2_Agi_export\export"
 #output_path = r"D:\Atlasus\3_ground_class"
 
-input_path = r"D:\Atlasus\Testy_skaningu\2_Agi_export\export"
-output_path = r"D:\Atlasus\Testy_skaningu\3_ground_class"
+input_path = r"D:\Katowice\wip\2_5_merged"
+output_path = r"D:\Katowice\wip\3_ground_class"
 
 all_files = []
+
+fraction = 0.30
 
 def classify(cloud):
     print("STARTED CLASSIFING")
@@ -21,7 +23,7 @@ def classify(cloud):
 
     csf = CSF.CSF()
 
-    csf.params.bSloopSmooth = True
+    csf.params.bSloopSmooth = False
     csf.params.cloth_resolution = 0.5
     csf.params.iterations = 500
     csf.params.class_threshold = 0.5
@@ -77,17 +79,31 @@ for file1 in all_files:
     non_ground.classification[:] = 1
     road.classification[:] = 14
 
+
+    #total_points = len(ground.points)
+    #sample_size = int(total_points * fraction)
+
+    #random_indices = np.random.choice(total_points, sample_size, replace = False)
+
+    #subsampled_points = ground.points[random_indices]
+
+    #subsampled_ground = laspy.LasData(las.header)
+    #subsampled_ground.points = subsampled_points
+
+
     #r = r"D:\Atlasus\3_ground_class\temp\roads.las"
     #g = r"D:\Atlasus\3_ground_class\temp\ground.las"
     #ng = r"D:\Atlasus\3_ground_class\temp\non_ground.las"
 
-    r = r"D:\Atlasus\Testy_skaningu\3_ground_class\temp\roads.las"
-    g = r"D:\Atlasus\Testy_skaningu\3_ground_class\temp\ground.las"
-    ng = r"D:\Atlasus\Testy_skaningu\3_ground_class\temp\non_ground.las"
+    r = r"D:\Katowice\wip\3_ground_class\temp\roads.las"
+    g = r"D:\Katowice\wip\3_ground_class\temp\ground.las"
+    ng = r"D:\Katowice\wip\3_ground_class\temp\non_ground.las"
 
     road.write(r)
-    ground.write(g)
+    #subsampled_ground.write(g)
     non_ground.write(ng)
+
+    ground.write(g)
 
     cmd = f"las2las -i {r} {g} {ng} -merged -o {output}"
 

@@ -3,10 +3,10 @@ import numpy as np
 import geopandas as gpd
 import os
 
-input_path = r"D:\TerraSolid\chc\test\chc_linie_class_sub.las"
-point_path = r"D:\TerraSolid\chc\poles\poles.shp"
-output_path = r"D:\TerraSolid\chc\export\poles_class.las"
-temp_path = r"D:\TerraSolid\chc\temp"
+input_path = r"D:\Atlasus\Naloty\Dane\Dzien_2_4\4_Terra\2_2.las"
+point_path = r"D:\Atlasus\wip\poles2.shp"
+output_path = r"D:\Atlasus\Naloty\Dane\Dzien_2_4\4_Terra\21.las"
+#temp_path = r"D:\TerraSolid\chc\temp"
 
 las = laspy.read(input_path)
 shapefile = gpd.read_file(point_path)

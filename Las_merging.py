@@ -1,8 +1,10 @@
 import os
 
-directory_path = r"D:\Atlasus\Testy_skaningu\export_las"
+directory_path = r"D:\CHC\wip"
 
-output = os.path.join(directory_path, "merged.las")
+output_path = r"D:\CHC\wip"
+
+output = os.path.join(output_path, "merged.las")
 
 a = 0
 
