@@ -1,10 +1,14 @@
 import geopandas as gpd
 import time
+import pandas as pd
+import numpy as np
 
-gdf = gpd.read_file(r"D:\Wycena_Naloty\ENEA\Kolejnosc\aggregated.gpkg")
+#gdf = gpd.read_file(r"D:\Atlasus\Naloty\Dzien_1\trasa_test.gpkg")
+gdf = gpd.read_file(r"D:\Atlasus\Naloty\do_usuwania.gpkg")
 gdf_copy = gdf
 pathway = []
-
+coordsX = []
+coordsY = []
 
 def length(feature):
     return feature["length"].values[0]
@@ -12,10 +16,61 @@ def length(feature):
 def numbers(feature):
     return feature["Numer"].values[0]
 
+def points(number, gdf):
 
-start = 635 #starting line
-max_length = 15000  #how long should the segment be
+    shape = gdf[gdf["Numer"] == number]
+
+    multi = shape["geometry"].iloc[0]
+    line = list(multi.geoms)
+
+    for i in line:
+
+        first_point = i.coords[0]
+        second_point = i.coords[1]
+
+        coordsX.append(first_point[0])
+        coordsX.append(second_point[0])
+        coordsY.append(first_point[1])
+        coordsY.append(second_point[1])
+
+def point_list(pathway, gdf):
+
+    pathway.pop(0)
+    print(pathway)
+
+    for i in pathway:
+        points(i, gdf)
+
+def text_maker(coordsX, coordsY):
+
+    template = [[int(1), int(0), int(16), 0, 0, 0, 0, 53, 18, 100, int(1)]]
+
+    columns = ["Col1", "Frame", "Command", "Col2", "Col3", "Col4", "Col5", "B", "L", "H", "Col6"]
+
+    int_cols = ["Col1", "Frame", "Command", "Col6"]
+
+    df = pd.DataFrame(template, columns=columns)
+
+    for i in range(len(coordsX)):
+
+        b = coordsY[i]
+        l = coordsX[i]
+
+        add = {"Col1" : int(0), "Frame" : int(10), "Command" : int(16), "Col2" : 0, "Col3" : 0, "Col4" : 0, "Col5" : 0, "B" : b, "L" : l, "H" : 55, "Col6" : int(1)}
+        df = df._append(add, ignore_index = True)
+    
+    df[int_cols] = df[int_cols].map(np.int64)
+
+    df.to_csv(r"D:\Atlasus\Naloty\Dzien_1\trasa.waypoints", sep = "\t", index = True, header = None)
+    
+
+
+
+start = 1 #starting line
+max_length = 5000  #how long should the segment be
 current_length = 0  #value for collecting lengths
+
+points(start, gdf)
 start_line = gdf[gdf["Numer"] == start] #set the starting line
 pathway.append(int(numbers(start_line)))
 gdf = gdf[gdf["Numer"] != start]
@@ -121,6 +176,8 @@ def main():
     print("Current length : ", cur)
     print("Current path : ", path)
     print("Last line : ", last)
+    #point_list(path, gdf)
+    #text_maker(coordsX, coordsY)
 
     
 
@@ -129,4 +186,5 @@ def main():
     selected_line.to_file(output, driver = "GPKG")
 
 main()
+
 
