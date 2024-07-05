@@ -1,23 +1,26 @@
 import os
 
-directory_path = r"D:\CHC\wip"
+directory_path = r"D:\Atlasus\wip"
 
-output_path = r"D:\CHC\wip"
+output_path = r"D:\Atlasus\wip"
 
 output = os.path.join(output_path, "merged.las")
 
 a = 0
+try:
+    for i in os.listdir(directory_path):
+        if i.endswith(".las"):
+            new_name = str(a) + ".las"
 
-for i in os.listdir(directory_path):
-    if i.endswith(".las"):
-        new_name = str(a) + ".las"
+            curr_file_path = os.path.join(directory_path, i)
+            new_file_path = os.path.join(directory_path, new_name)
 
-        curr_file_path = os.path.join(directory_path, i)
-        new_file_path = os.path.join(directory_path, new_name)
+            os.rename(curr_file_path, new_file_path)
 
-        os.rename(curr_file_path, new_file_path)
+            a += 1
+except:
+    pass
 
-        a += 1
 
 las_files = [f for f in os.listdir(directory_path) if f.endswith(".las")]
 
