@@ -3,7 +3,7 @@ import pandas as pd
 from pyproj import Transformer
 
 
-directory_path = r"E:\ZDJECIA"
+directory_path = r"D:\Atlasus\Naloty\Dane\Dzien_2_4\metadane\ZLACZONE"
 
 front = os.path.join(directory_path, "FRONT_raw.txt")
 rear = os.path.join(directory_path, "REAR_raw.txt")
@@ -46,42 +46,47 @@ map_df = map_df[["Filename", "Easting", "Northing", "H-MSL", "Roll", "Pitch", "H
 
 #Changing data in map df
 map_df["Pitch"] = 90
-map_df["Heading"] = front_df["Heading"]
+#map_df["Heading"] = front_df["Heading"]
 map_df["H-MSL"] = map_df["H-MSL"] - 40.5
 
 #Changing data in front df
 front_df["Filename"] = front_df["Filename"].str.replace(r'\.JPG$', '', regex=True)
-front_df["H-MSL"] = map_df["H-MSL"]
+#front_df["Filename"] = front_df["Filename"] + "_1"
+front_df["H-MSL"] = rear_df["H-MSL"]
 
 #Chaning data in rear df
 #rear_df["Roll"] = front_df["Roll"]
 #rear_df["Pitch"] = front_df["Pitch"] * -1
 #rear_df["Heading"] = front_df["Heading"] + 180
 rear_df["Filename"] = rear_df["Filename"].str.replace(r'\.JPG$', '', regex=True)
-rear_df["H-MSL"] = map_df["H-MSL"]
+#rear_df["Filename"] = rear_df["Filename"] + "_1"
+#rear_df["H-MSL"] = map_df["H-MSL"]
 
 for i in range(front_df.shape[0]):
     #XY Coords
     
     transformer = Transformer.from_crs("EPSG:4326", "EPSG:2177")
     point_front = transformer.transform(front_df["Northing"][i], front_df["Easting"][i])
-    point_rear = transformer.transform(rear_df["Northing"][i], rear_df["Easting"][i])
 
     front_df["Northing"][i] = point_front[0]
     front_df["Easting"][i] = point_front[1]
-
-    rear_df["Northing"][i] = point_rear[0]
-    rear_df["Easting"][i] = point_rear[1]
-
-    #Heading for rear
-    #if rear_df["Heading"][i] >= 360:
-    #    rear_df["Heading"][i] = front_df["Heading"][i] - 180
 
     #Convert heading
     if front_df["Heading"][i] > 180:
         diff = front_df["Heading"][i] - 180
         front_df["Heading"][i] = -(180-diff)
 
+for i in range(rear_df.shape[0]):
+    #XY Coords
+    
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:2177")
+    point_rear = transformer.transform(rear_df["Northing"][i], rear_df["Easting"][i])
+
+    rear_df["Northing"][i] = point_rear[0]
+    rear_df["Easting"][i] = point_rear[1]
+
+
+    #Convert heading
     if rear_df["Heading"][i] > 180:
         diff1 = rear_df["Heading"][i] - 180
         rear_df["Heading"][i] = -(180-diff1)
@@ -92,12 +97,15 @@ for i in range(map_df.shape[0]):
     else:
         map_df["Roll"][i] = -(180 - map_df["Roll"][i])
 
-    if map_df["Heading"][i] >= 360:
-        map_df["Heading"][i] = map_df["Heading"][i] - 360
+    if map_df["Heading"][i] > 0:
+        map_df["Heading"][i] = map_df["Heading"][i] - 180
+    else:
+        map_df["Heading"][i] = map_df["Heading"][i] + 180
 
-    if map_df["Heading"][i] > 180:
-        diff2 = map_df["Heading"][i] - 180
-        map_df["Heading"][i] = -(180-diff2)
+    #if map_df["Heading"][i] < 0:
+        #diff2 = map_df["Heading"][i] + 180
+        #map_df["Heading"][i] = -(180-diff2)
+        #map_df["Heading"][i] = map_df["Heading"][i] + 180
 
 
 #add a template at the head for front and rear

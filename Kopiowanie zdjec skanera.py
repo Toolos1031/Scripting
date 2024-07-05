@@ -20,19 +20,23 @@ c = 1
 
 for directory in lista:
     img = glob.glob(os.path.join(directory, "IMG"))
-    img, = img
-    if os.path.exists(img):
-        match = re.search(r'@@[^/\\]+', directory)
-    if match: 
-        folder_name = match.group(0)
-        print(folder_name)
-        destination_folder = os.path.join(pendrive, folder_name, "FOTO")
-        os.makedirs(destination_folder, exist_ok=True)
-        shutil.copytree(img, destination_folder, dirs_exist_ok=True)
-        print(f"finished {c} out of 40")
-        c += 1
-    else:
-        print("error")
+    print(img)
+    try:
+        img, = img
+        if os.path.exists(img):
+            match = re.search(r'@@[^/\\]+', directory)
+        if match: 
+            folder_name = match.group(0)
+            print(folder_name)
+            destination_folder = os.path.join(pendrive, folder_name, "FOTO")
+            os.makedirs(destination_folder, exist_ok=True)
+            shutil.copytree(img, destination_folder, dirs_exist_ok=True)
+            print(f"finished {c} out of 40")
+            c += 1
+        else:
+            print("error")
+    except:
+        pass
 
 
 """ 
