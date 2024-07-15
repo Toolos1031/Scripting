@@ -1,7 +1,7 @@
 import os
 
-input_directory = r"D:\Katowice\camera_log"
-output_file_path = r"D:\Katowice\camera_log.txt"
+input_directory = r"Y:\__Atlasus\Kot_Ser\Metadane\MAP"
+output_file_path = r"Y:\__Atlasus\Kot_Ser\Metadane\MAP\FRONT_raw_1.txt"
 
 def join_text_files(input_directory, output_file_path):
     with open(output_file_path, 'w') as output_file:
@@ -12,7 +12,8 @@ def join_text_files(input_directory, output_file_path):
                     lines = input_file.readlines()
                     if lines:
                         # Write lines except the first line
-                        output_file.writelines(lines[1:])
+                        #output_file.writelines(lines) #Kopiowanie RGB
+                        output_file.writelines(lines[1:]) #Kopiowanie Skaner
 
 # Call the function
 join_text_files(input_directory, output_file_path)

@@ -7,8 +7,8 @@ import subprocess
 #input_path = r"D:\Atlasus\2_Agi_export\export"
 #output_path = r"D:\Atlasus\3_ground_class"
 
-input_path = r"D:\Katowice\wip\2_5_merged"
-output_path = r"D:\Katowice\wip\3_ground_class"
+input_path = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\2_Agi_Export\export"
+output_path = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground"
 
 all_files = []
 
@@ -80,30 +80,30 @@ for file1 in all_files:
     road.classification[:] = 14
 
 
-    #total_points = len(ground.points)
-    #sample_size = int(total_points * fraction)
+    total_points = len(ground.points)
+    sample_size = int(total_points * fraction)
 
-    #random_indices = np.random.choice(total_points, sample_size, replace = False)
+    random_indices = np.random.choice(total_points, sample_size, replace = False)
 
-    #subsampled_points = ground.points[random_indices]
+    subsampled_points = ground.points[random_indices]
 
-    #subsampled_ground = laspy.LasData(las.header)
-    #subsampled_ground.points = subsampled_points
+    subsampled_ground = laspy.LasData(las.header)
+    subsampled_ground.points = subsampled_points
 
 
     #r = r"D:\Atlasus\3_ground_class\temp\roads.las"
     #g = r"D:\Atlasus\3_ground_class\temp\ground.las"
     #ng = r"D:\Atlasus\3_ground_class\temp\non_ground.las"
 
-    r = r"D:\Katowice\wip\3_ground_class\temp\roads.las"
-    g = r"D:\Katowice\wip\3_ground_class\temp\ground.las"
-    ng = r"D:\Katowice\wip\3_ground_class\temp\non_ground.las"
+    r = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground\temp\roads.las"
+    g = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground\temp\ground.las"
+    ng = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground\temp\non_ground.las"
 
     road.write(r)
-    #subsampled_ground.write(g)
+    subsampled_ground.write(g)
     non_ground.write(ng)
 
-    ground.write(g)
+    #ground.write(g)
 
     cmd = f"las2las -i {r} {g} {ng} -merged -o {output}"
 

@@ -66,7 +66,7 @@ def text_maker(coordsX, coordsY):
 
 
 
-start = 1 #starting line
+start = 513 #starting line
 max_length = 5000  #how long should the segment be
 current_length = 0  #value for collecting lengths
 

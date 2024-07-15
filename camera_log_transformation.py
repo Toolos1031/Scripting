@@ -3,14 +3,16 @@ import pandas as pd
 from pyproj import Transformer
 
 
-directory_path = r"D:\Atlasus\Naloty\Dane\Dzien_2_4\metadane\ZLACZONE"
+directory_path = r"Y:\__Atlasus\Kot_Ser\Metadane"
 
-front = os.path.join(directory_path, "FRONT_raw.txt")
-rear = os.path.join(directory_path, "REAR_raw.txt")
-map = os.path.join(directory_path, "MAP_raw.txt")
+front = os.path.join(directory_path, "FRONT_raw_1.txt") #ZMIENIC NAZWE PLIKU
+rear = os.path.join(directory_path, "REAR_raw_1.txt") #ZMIENIC NAZWE PLIKU
+map = os.path.join(directory_path, "MAP_raw.txt") #Z REGULY MAMY JEDEN TO ZOSTAWIAMY
 
-out_rear = os.path.join(directory_path, "gpslog_REAR.txt")
-out_front = os.path.join(directory_path, "gpslog_FRONT.txt")
+koncowka = "_1"
+
+out_rear = os.path.join(directory_path, "gpslog_REAR_1.txt")
+out_front = os.path.join(directory_path, "gpslog_FRONT_1.txt")
 out_map = os.path.join(directory_path, "gpslog_MAP.txt")
 
 #Columns in input file
@@ -45,13 +47,13 @@ map_df = map_df.drop("Timestamp", axis = 1)
 map_df = map_df[["Filename", "Easting", "Northing", "H-MSL", "Roll", "Pitch", "Heading"]]
 
 #Changing data in map df
-map_df["Pitch"] = 90
+map_df["Pitch"] = 0
 #map_df["Heading"] = front_df["Heading"]
 map_df["H-MSL"] = map_df["H-MSL"] - 40.5
 
 #Changing data in front df
 front_df["Filename"] = front_df["Filename"].str.replace(r'\.JPG$', '', regex=True)
-#front_df["Filename"] = front_df["Filename"] + "_1"
+front_df["Filename"] = front_df["Filename"] + koncowka 
 front_df["H-MSL"] = rear_df["H-MSL"]
 
 #Chaning data in rear df
@@ -59,7 +61,7 @@ front_df["H-MSL"] = rear_df["H-MSL"]
 #rear_df["Pitch"] = front_df["Pitch"] * -1
 #rear_df["Heading"] = front_df["Heading"] + 180
 rear_df["Filename"] = rear_df["Filename"].str.replace(r'\.JPG$', '', regex=True)
-#rear_df["Filename"] = rear_df["Filename"] + "_1"
+rear_df["Filename"] = rear_df["Filename"] + koncowka 
 #rear_df["H-MSL"] = map_df["H-MSL"]
 
 for i in range(front_df.shape[0]):
