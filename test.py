@@ -1,11 +1,27 @@
-import Metashape
+import os
+import glob
+from pathlib import Path
 
-print(Metashape.version)
+directory = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\Surowe_dane"
+directory1 = Path("D:/Atlasus/Naloty/Dane/Dzien_5_6/Surowe_dane")
 
-path = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\2_Agi_Export\calibration_project.psx"
+def walk__():
+    for path, folders, files in os.walk(directory):
+        print(len(files))
+        print(path)
 
-doc = Metashape.Document()
-doc.open(path) #open existing document
+def glob__():
+    for filename in glob.glob(f"{directory}/*"):
+        print(filename)
 
-doc.save(path) #save the project under new name (works similar to Save As operation and re-opens document if PSX format is used)
-doc.save() #just saves the project under the same name
+def pathlib__():
+    files = Path(directory).glob("*")
+
+    for filename in files:
+        print(filename)
+
+def pathlib_1():
+    file_list = [f for f in directory1.glob("**/*") if f.is_file()]
+    print(file_list)
+
+pathlib_1()
