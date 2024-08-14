@@ -3,16 +3,16 @@ import pandas as pd
 from pyproj import Transformer
 
 
-directory_path = r"Y:\__Atlasus\Kot_Ser\Metadane"
+directory_path = r"C:\Atlasus\ZDJECIA\zur_jezewo"
 
-front = os.path.join(directory_path, "FRONT_raw_1.txt") #ZMIENIC NAZWE PLIKU
-rear = os.path.join(directory_path, "REAR_raw_1.txt") #ZMIENIC NAZWE PLIKU
+front = os.path.join(directory_path, "FRONT_raw_3.txt") #ZMIENIC NAZWE PLIKU
+rear = os.path.join(directory_path, "REAR_raw_3.txt") #ZMIENIC NAZWE PLIKU
 map = os.path.join(directory_path, "MAP_raw.txt") #Z REGULY MAMY JEDEN TO ZOSTAWIAMY
 
-koncowka = "_1"
+koncowka = "_3"
 
-out_rear = os.path.join(directory_path, "gpslog_REAR_1.txt")
-out_front = os.path.join(directory_path, "gpslog_FRONT_1.txt")
+out_rear = os.path.join(directory_path, "gpslog_REAR_3.txt")
+out_front = os.path.join(directory_path, "gpslog_FRONT_3.txt")
 out_map = os.path.join(directory_path, "gpslog_MAP.txt")
 
 #Columns in input file

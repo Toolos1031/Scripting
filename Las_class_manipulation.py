@@ -7,8 +7,10 @@ import subprocess
 #input_path = r"D:\Atlasus\2_Agi_export\export"
 #output_path = r"D:\Atlasus\3_ground_class"
 
-input_path = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\2_Agi_Export\export"
-output_path = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground"
+directory = r"C:\Atlasus\zur_laskowice"
+
+input_path = os.path.join(directory, "2_Agi_Export\Export")
+output_path = os.path.join(directory, "3_Ground")
 
 all_files = []
 
@@ -95,9 +97,9 @@ for file1 in all_files:
     #g = r"D:\Atlasus\3_ground_class\temp\ground.las"
     #ng = r"D:\Atlasus\3_ground_class\temp\non_ground.las"
 
-    r = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground\temp\roads.las"
-    g = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground\temp\ground.las"
-    ng = r"D:\Atlasus\Naloty\Dane\Dzien_5_6\kot-ser\3_Ground\temp\non_ground.las"
+    r = os.path.join(directory, r"3_Ground\temp\roads.las")
+    g = os.path.join(directory, r"3_Ground\temp\ground.las")
+    ng = os.path.join(directory, r"3_Ground\temp\non_ground.las")
 
     road.write(r)
     subsampled_ground.write(g)

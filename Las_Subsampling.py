@@ -2,8 +2,8 @@ import laspy
 import os
 import numpy as np
 
-input_path = r"D:\Atlasus\wip"
-output_path = r"D:\Atlasus\wip"
+input_path = r"C:\Atlasus\Zur_jezewo\wip"
+output_path = r"C:\Atlasus\Zur_jezewo\wip"
 
 fraction = 0.4
 

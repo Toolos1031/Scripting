@@ -1,7 +1,7 @@
 import os
 
 # Set the directory path
-directory_path = r'E:\Kotomierz_Serock\REAR_4'
+directory_path = r'C:\Atlasus\ZDJECIA\zur_jezewo\REAR_3'
 
 # List all files in the directory
 for filename in os.listdir(directory_path):

@@ -1,7 +1,7 @@
 import os
 
-input_directory = r"Y:\__Atlasus\Kot_Ser\Metadane\MAP"
-output_file_path = r"Y:\__Atlasus\Kot_Ser\Metadane\MAP\FRONT_raw_1.txt"
+input_directory = r"C:\Atlasus\ZDJECIA\zur_jezewo\MAP"
+output_file_path = r"C:\Atlasus\ZDJECIA\zur_jezewo\MAP_raw.txt"
 
 def join_text_files(input_directory, output_file_path):
     with open(output_file_path, 'w') as output_file:

@@ -20,7 +20,7 @@ for file in all_files:
     print(points)
     xyz = np.vstack((las.x, las.y, las.z)).transpose()
 
-    #csf = CSF.CSF()
+    csf = CSF.CSF()
 
     csf.params.bSloopSmooth = True
     csf.params.cloth_resolution = 0.5

@@ -1,8 +1,8 @@
 import os
 
-directory_path = r"D:\Atlasus\wip"
+directory_path = r"C:\Atlasus\Zur_jezewo\wip"
 
-output_path = r"D:\Atlasus\wip"
+output_path = r"C:\Atlasus\Zur_jezewo\wip"
 
 output = os.path.join(output_path, "merged.las")
 
