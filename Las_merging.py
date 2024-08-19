@@ -2,9 +2,7 @@ import os
 
 directory_path = r"C:\Atlasus\Zur_jezewo\wip"
 
-output_path = r"C:\Atlasus\Zur_jezewo\wip"
-
-output = os.path.join(output_path, "merged.las")
+output = os.path.join(directory_path, "merged.las")
 
 a = 0
 try:

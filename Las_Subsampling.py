@@ -2,19 +2,19 @@ import laspy
 import os
 import numpy as np
 
-input_path = r"C:\Atlasus\Zur_jezewo\wip"
-output_path = r"C:\Atlasus\Zur_jezewo\wip"
+dir_path = r"C:\Atlasus\Zur_jezewo\wip"
+
 
 fraction = 0.4
 
 all_files = []
 
 #2 i 14
-for file in os.listdir(input_path):
+for file in os.listdir(dir_path):
     all_files.append(file)
 
 for file in all_files:
-    name = os.path.join(input_path, file)
+    name = os.path.join(dir_path, file)
 
     las = laspy.read(name)
 
@@ -32,6 +32,6 @@ for file in all_files:
 
     out_name = "sub" + file
 
-    output = os.path.join(output_path, out_name)
+    output = os.path.join(dir_path, out_name)
 
     subsampled_las.write(output)
