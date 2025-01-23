@@ -51,7 +51,7 @@ def get_output():
 
 
 def compress(file_list, path, output_path, epsg_code):
-    """Convert .tif files to .gpkg format"""
+    """Compress .tif files"""
     for file in file_list:
         print(f"Started compressing {file}")
         source = os.path.join(path, file)
@@ -61,12 +61,12 @@ def compress(file_list, path, output_path, epsg_code):
             translate_options = gdal.TranslateOptions(format = "GTiff", outputSRS = f"EPSG:{epsg_code}", creationOptions = ["COMPRESS=LZW", "PREDICTOR=2", "BIGTIFF=YES"], callback = gdal.TermProgress)
             gdal.Translate(target, source, options = translate_options)
             converted_files.append(target)
-            print(f"Finished converting {target}")
+            print(f"Finished compressing {target}")
         except Exception as e:
-            print(f"Error converting {file}: {e}")
+            print(f"Error compressing {file}: {e}")
 
 def generate_overviews(converted_files):
-    """Generate overviews for converted .gpkg files"""
+    """Generate overviews for compressed files"""
     for file in converted_files:
         print(f"Started building overviews for {file}")
 

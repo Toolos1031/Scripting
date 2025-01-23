@@ -4,10 +4,10 @@ import glob
 import re
 import shutil
 
-directory1 = r"Y:\2024.06.15 Katowice tory skaning\Surowe_dane"
-pendrive = r"Y:\2024.06.15 Katowice tory skaning\FOTO"
+directory1 = r"D:\____Katowice\surowe_dane"
+pendrive = r"D:\____Katowice\kato_wip\foto"
 
-photo_path = r"\IMG"
+photo_path = r"\IMG\Camera1"
 
 lista = []
 img_folder = []
@@ -28,10 +28,10 @@ for directory in lista:
         if match: 
             folder_name = match.group(0)
             print(folder_name)
-            destination_folder = os.path.join(pendrive, folder_name, "FOTO")
+            destination_folder = os.path.join(pendrive, folder_name)
             os.makedirs(destination_folder, exist_ok=True)
             shutil.copytree(img, destination_folder, dirs_exist_ok=True)
-            print(f"finished {c} out of 40")
+            print(f"finished {c} out of {len(lista)}")
             c += 1
         else:
             print("error")
