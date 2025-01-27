@@ -1,84 +1,90 @@
-from shapely.geometry import Point, box
-import geopandas as gpd
+
+import matplotlib.pyplot as plt
 import laspy
 import numpy as np
 import os
-from tqdm import tqdm
-from multiprocessing import Pool
+import pandas as pd
+from mpl_point_clicker import clicker
+import pickle
+
+end = False
+
+folder_name = r"D:\WODY_testy\clipping\out"
+
+with open(r"D:\WODY_testy\clipping\dictionary.pkl", "rb") as pick:
+    dict = pickle.load(pick)
+
+data = pd.DataFrame(dict)
+
+scans = [os.path.join(folder_name, i) for i in os.listdir(folder_name) if i.endswith(".las")]
+
+measured_points = pd.DataFrame(columns = ["id", "Pomiar", "X_coord", "Y_coord", "Z_coord"])
+
+def mean(value):
+    return((max(value) + min(value))/2)
+
+def onkeypress(event):
+    global end
+    if event.key == "n":
+        plt.close()
+
+    if event.key == "`":
+        end = True
+        plt.close()
+
+def onclick(event):
+    if event.inaxes == ax:
+        cont, ind = scatter.contains(event)
+        if cont:
+            idx = ind["ind"][0]
+            print(f"Clicked on point number: {idx}")
+            print(f"Coord X: {x[idx]}, Coord Y: {y[idx]}, Coord Z: {z[idx]}")
+
+for file in scans:
+
+    if end:
+        break
+
+    filename = "_".join(file.split("_")[-4:])
+
+    matching_row = data[data["full_name"] == filename]
+
+    if not matching_row.empty:
+        angle = matching_row["angle"].iloc[0]
+
+    scan = laspy.read(file)
+
+    x = []
+    y = []
+    z = []
+
+    for i in scan.x:
+        x.append(i)
+
+    for i in scan.y:
+        y.append(i)
+
+    for i in scan.z:
+        z.append(i)
 
 
-# Function for calculating the extent of a laserscan
-def bbox(scan):
-    scan_extent = {
-        "xmin" : scan.header.mins[0],
-        "xmax" : scan.header.maxs[0],
-        'ymin' : scan.header.mins[1],
-        "ymax" : scan.header.maxs[1]
-    }
+    fig = plt.figure(figsize = (4,4))
+    ax = fig.add_subplot(111, projection = "3d")
+    fig.subplots_adjust(top = 1.3, bottom = -0.3)
 
-    scan_bbox = box(
-        scan_extent["xmin"],
-        scan_extent["ymin"],
-        scan_extent["xmax"],
-        scan_extent["ymax"]
-    )
+    scatter = ax.scatter(x, y, z, s = 1)
 
-    return scan_bbox
-# Function to check if points are inside of polygons
-def check_points(args):
-    chunk, polygon = args
-    return [polygon.contains(Point(x, y)) for x, y in chunk]
+    scatter.set_picker(1)
 
-# Main processing function
-def process_scan(scan_file, shapefile, out_folder):
-    scan = laspy.read(scan_file)
-    points = np.vstack((scan.x, scan.y)).T # Prepare data for shapely
+    ax.view_init(azim=-angle+90, elev=0)
 
-    intersecting_polygons = shapefile[shapefile.geometry.intersects(bbox(scan))] # Use only polygons that are intersecting the laser scan
+    plt.xlim(mean(x)-5, mean(x)+5)
+    plt.ylim(mean(y)-5, mean(y)+5)
 
-    for rows, cols in tqdm(intersecting_polygons.iterrows(), total = len(intersecting_polygons)): # Iterate over selected polygons
-    
-        polygon = cols["geometry"]
-        xmin, ymin, xmax, ymax = cols["geometry"].bounds # Get polygons bounding box
+    fig.canvas.mpl_connect("key_press_event", onkeypress)
+    fig.canvas.mpl_connect("button_press_event", onclick)
 
-        polygon_mask = (
-            (points[:, 0] >= xmin) & 
-            (points[:, 0] <= xmax) & 
-            (points[:, 1] >= ymin) & 
-            (points[:, 1] <= ymax)
-        ) # Mask points in the polygons bounding box
+    manager = plt.get_current_fig_manager()
+    manager.window.showMaximized()
 
-        filtered_points = points[polygon_mask] # Select points in polygons bounding box
-
-        num_cores = 32
-        chunks = np.array_split(filtered_points, num_cores)
-
-        with Pool(num_cores) as pool: # Run pools
-            results = pool.map(check_points, [(chunk, polygon) for chunk in chunks])
-
-        inside_polygon = np.concatenate(results) # Merge results from pools
-
-        if inside_polygon.any(): # If the result is not empty
-
-            final_indices = np.where(polygon_mask)[0][inside_polygon] # Go back to initial array size
-
-            clipped_scan = laspy.LasData(scan.header)
-            clipped_scan.points = scan.points[final_indices].copy()
-
-            new_filename = os.path.join(out_folder, f"{cols['id']}.las")
-
-            clipped_scan.write(new_filename)
-
-def main():
-    shapefile = gpd.read_file(r"D:\WODY_testy\clipping\clip.shp")
-    scan_folder = r"D:\WODY_testy\clipping"
-    out_folder = r"D:\WODY_testy\clipping\out"
-
-    scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".las")]
-    for scan_file in scans:
-        process_scan(scan_file, shapefile, out_folder)
-
-
-
-if __name__ == "__main__":
-    main()
+    plt.show()
