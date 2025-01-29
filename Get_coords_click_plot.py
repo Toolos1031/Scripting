@@ -8,9 +8,9 @@ import numpy as np
 
 ### IMPORTING ###
 
-folder_name = r"D:\WODY_testy\clipping\out" # Folder with cross-sections
+folder_name = r"D:\__WodyPolskie\clipping\out" # Folder with cross-sections
 
-with open(r"D:\WODY_testy\clipping\dictionary.pkl", "rb") as pick: # File with cross-section metadata
+with open(r"D:\__WodyPolskie\clipping\dictionary.pkl", "rb") as pick: # File with cross-section metadata
     dict = pickle.load(pick)
 
 ### SETUPS ###
@@ -48,17 +48,17 @@ def onclick(event): # Function to handle click events on the plot
             colors[idx] = (1, 0, 0, 1) # Set colors on picked points
             scatter.set_color(colors)
 
-            sizes[idx] = 20 # Set size on picked points
+            sizes[idx] = 30 # Set size on picked points
             scatter.set_sizes(sizes)
 
             update_text(clicked_point)
 
-def save_clicks(proper):
+def save_clicks(trench_visible):
     filename = "_".join(file.split("_")[-4:])
 
     condition = (data["full_name"] == filename)
 
-    if proper == 0:
+    if trench_visible == 0:
         data.loc[condition, "Left X"] = round(clicks[0][0], 2)
         data.loc[condition, "Left Y"] = round(clicks[0][1], 2)
         data.loc[condition, "Left Z"] = round(clicks[0][2], 2)
@@ -68,8 +68,9 @@ def save_clicks(proper):
         data.loc[condition, "Right X"] = round(clicks[2][0], 2)
         data.loc[condition, "Right Y"] = round(clicks[2][1], 2)
         data.loc[condition, "Right Z"] = round(clicks[2][2], 2)
+        data.loc[condition, "Comment"] = "Completed"
         
-    if proper == 1:
+    if trench_visible == 1:
         data.loc[condition, "Comment"] = "Skipped"
         data.loc[condition, "Mean X"] = mean(x)
         data.loc[condition, "Mean Y"] = mean(y)
@@ -86,6 +87,7 @@ def reset(event): # Reset button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
+    warning_text.set_text("")
     clicks.clear()
     fig.canvas.draw_idle()
 
@@ -95,8 +97,13 @@ def next(event): # Next button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
-    save_clicks(proper = 0)
-    plt.close()
+    print(len(clicks))
+    if len(clicks) == 3:
+        save_clicks(trench_visible = 0)
+        plt.close()
+    else:
+        warning_text.set_text("Wrong amount of points \n click 'RESET'")
+        fig.canvas.draw_idle()
 
 def skip(event): # Skip button logic
     coord_text.set_text("Click a point")
@@ -104,7 +111,7 @@ def skip(event): # Skip button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
-    save_clicks(proper = 1)
+    save_clicks(trench_visible = 1)
     plt.close()
 
 def end_task(event):
@@ -128,73 +135,98 @@ def angle(file): # Function to grab angle value from the cross-section metadata,
         return angle
     return 0
 
+def get_value(file, column): # Function to grab angle value from the cross-section metadata, based on the name of the section
+    filename = "_".join(file.split("_")[-4:])
+    
+    condition = (data["full_name"] == filename)
+    matching_col = data.loc[condition, [column]]
+
+    if column == "angle":
+        if not matching_col.empty:
+            angle = matching_col.iloc[0, 0]
+            return angle
+        return 0
+    
+    if column == "Comment":
+        comment = matching_col.iloc[0, 0]
+        return str(comment)
+
+
 ### MAIN LOOP ###
 
 for file in scans:
 
-    clicks = []
-    proper = 0
+    if get_value(file, "Comment") == "nan":
+        clicks = []
+        trench_visible = 0
 
-    if end:
-        break
+        if end:
+            break
 
-    scan = laspy.read(file)
+        scan = laspy.read(file)
 
-    x = list(scan.x)
-    y = list(scan.y)
-    z = list(scan.z)
+        x = list(scan.x)
+        y = list(scan.y)
+        z = list(scan.z)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection = "3d")
-    fig.subplots_adjust(top = 1.3, bottom = -0.2)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection = "3d")
+        fig.subplots_adjust(top = 1.3, bottom = -0.2)
 
-    default_colors = np.array([(0, 0, 1, 1)] * len(x))
-    colors = default_colors.copy()
+        default_colors = np.array([(0, 0, 1, 1)] * len(x))
+        colors = default_colors.copy()
 
-    default_sizes = np.full(len(x), 1)
-    sizes = default_sizes.copy()
+        default_sizes = np.full(len(x), 1)
+        sizes = default_sizes.copy()
 
-    scatter = ax.scatter(x, y, z, s = sizes, c = colors)
+        scatter = ax.scatter(x, y, z, s = sizes, c = colors)
 
-    scatter.set_picker(1)
+        scatter.set_picker(1)
 
-    ax.view_init(azim=-angle(file)+90, elev=0)
+        ax.view_init(azim=-get_value(file, "angle")+90, elev=0)
 
-    plt.xlim(mean(x)-5, mean(x)+5)
-    plt.ylim(mean(y)-5, mean(y)+5)
+        plt.xlim(mean(x)-5, mean(x)+5)
+        plt.ylim(mean(y)-5, mean(y)+5)
 
-    coord_text = fig.text(0, 0.95, "Click a point", fontsize = 12, color = "blue", va = "top")
+        coord_text = fig.text(0, 0.95, "Click a point", fontsize = 12, color = "blue", va = "top")
+        name_text = fig.text(0.5, 0.95, get_value(file, "angle"), fontsize = 12, color = "blue" )
+        warning_text = fig.text(0.3, 0.5, "", fontsize = 40, color = "red")
 
-    ax_reset = fig.add_axes([0.1, 0.05, 0.2, 0.075])
-    reset_button = Button(ax_reset, "Reset")
-    reset_button.on_clicked(reset)
+        ax_reset = fig.add_axes([0.1, 0.05, 0.2, 0.075])
+        reset_button = Button(ax_reset, "Reset")
+        reset_button.on_clicked(reset)
 
-    ax_next = fig.add_axes([0.7, 0.05, 0.2, 0.075])
-    next_button = Button(ax_next, "Next")
-    next_button.on_clicked(next)
+        ax_next = fig.add_axes([0.7, 0.05, 0.2, 0.075])
+        next_button = Button(ax_next, "Next")
+        next_button.on_clicked(next)
 
-    ax_skip = fig.add_axes([0.4, 0.05, 0.2, 0.075])
-    skip_button = Button(ax_skip, "Skip")
-    skip_button.on_clicked(skip)
+        ax_skip = fig.add_axes([0.4, 0.05, 0.2, 0.075])
+        skip_button = Button(ax_skip, "Skip")
+        skip_button.on_clicked(skip)
 
-    ax_end = fig.add_axes([0.7, 0.92, 0.2, 0.075])
-    end_button = Button(ax_end, "End")
-    end_button.on_clicked(end_task)
+        ax_end = fig.add_axes([0.7, 0.92, 0.2, 0.075])
+        end_button = Button(ax_end, "End")
+        end_button.on_clicked(end_task)
 
-    ax_slider = fig.add_axes([0.2, 0.15, 0.6, 0.03])
-    point_size_slider = Slider(ax_slider, "Point Size", 1, 20, valinit = 1, valstep = 1)
-    point_size_slider.on_changed(update_point_size)
+        ax_slider = fig.add_axes([0.2, 0.15, 0.6, 0.03])
+        point_size_slider = Slider(ax_slider, "Point Size", 1, 20, valinit = 1, valstep = 1)
+        point_size_slider.on_changed(update_point_size)
 
-    fig.canvas.mpl_connect("key_press_event", onkeypress)
-    fig.canvas.mpl_connect("button_press_event", onclick)
+        fig.canvas.mpl_connect("key_press_event", onkeypress)
+        fig.canvas.mpl_connect("button_press_event", onclick)
 
-    manager = plt.get_current_fig_manager()
-    manager.window.showMaximized()
+        manager = plt.get_current_fig_manager()
+        #manager.window.showMaximized()
 
-    plt.show()
+        plt.show()
+    else:
+        pass
+        print("Section arleady completed - Skipping")
+
+    
 
 print(data)
-data.to_csv("D:\WODY_testy\clipping\csv.csv")
+data.to_csv("D:\__WodyPolskie\clipping\csv.csv")
 
-with open(r"D:\WODY_testy\clipping\dictionary.pkl", "wb") as f:
+with open(r"D:\__WodyPolskie\clipping\dictionary.pkl", "wb") as f:
         pickle.dump(data, f)
