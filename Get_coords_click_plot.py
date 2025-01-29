@@ -5,12 +5,23 @@ import pandas as pd
 import pickle
 from matplotlib.widgets import Button, Slider
 import numpy as np
+import tkinter as tk
+from tkinter import filedialog
+
 
 ### IMPORTING ###
 
-folder_name = r"D:\__WodyPolskie\clipping\out" # Folder with cross-sections
+root = tk.Tk()
 
-with open(r"D:\__WodyPolskie\clipping\dictionary.pkl", "rb") as pick: # File with cross-section metadata
+root.withdraw()
+
+file_types = [("Pickle Files", "*.pkl")]
+
+pickle_name = filedialog.askopenfilename(filetypes = file_types, title = "Select pickle file") # Folder with cross-sections
+
+folder_name = filedialog.askdirectory(title = "Select directory with scans") # Folder with cross-sections
+
+with open(pickle_name, "rb") as pick: # File with cross-section metadata
     dict = pickle.load(pick)
 
 ### SETUPS ###
@@ -216,7 +227,7 @@ for file in scans:
         fig.canvas.mpl_connect("button_press_event", onclick)
 
         manager = plt.get_current_fig_manager()
-        #manager.window.showMaximized()
+        manager.window.showMaximized()
 
         plt.show()
     else:
@@ -226,7 +237,7 @@ for file in scans:
     
 
 print(data)
-data.to_csv("D:\__WodyPolskie\clipping\csv.csv")
+data.to_csv(os.path.join(folder_name, "csv.csv"))
 
-with open(r"D:\__WodyPolskie\clipping\dictionary.pkl", "wb") as f:
-        pickle.dump(data, f)
+#with open(pickle_name, "wb") as f:
+#        pickle.dump(data, f)
