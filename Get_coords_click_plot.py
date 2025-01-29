@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import laspy
 import os
@@ -22,12 +21,10 @@ data = pd.DataFrame(dict) # Conversion from dict to pd.DF
 
 scans = [os.path.join(folder_name, i) for i in os.listdir(folder_name) if i.endswith(".las")] # List of all cross-sections in the input folder
 
-out_data = pd.DataFrame(columns = ["id", "oznaczenie", "distance", "Left X", "Left Y", "Left Z", "Mid X", "Mid Y", "Mid Z", "Right X", "Right Y", "Right Z", "Comment"])
-
 ### FUNCTIONS ###
 
 def mean(value): # Function to calculate mean value. Used for limits in mpl plot
-    return((max(value) + min(value))/2)
+    return(round((max(value) + min(value))/ 2, 2))
 
 def onkeypress(event): # Function to grab key press events from the plot
     global end
@@ -58,35 +55,24 @@ def onclick(event): # Function to handle click events on the plot
 
 def save_clicks(proper):
     filename = "_".join(file.split("_")[-4:])
-    matching_row = data[data["full_name"] == filename]
+
+    condition = (data["full_name"] == filename)
 
     if proper == 0:
-        dict_temp = {}
-        dict_temp = {
-            "id" : matching_row["id"].iloc[0],
-            "oznaczenie" : matching_row["oznaczenie"].iloc[0],
-            "distance" : matching_row["distance"].iloc[0],
-            "Left X" : clicks[0][0],
-            "Left Y" : clicks[0][1],
-            "Left Z" : clicks[0][2],
-            "Right X" : clicks[1][0],
-            "Right Y" : clicks[1][1],
-            "Right Z" : clicks[1][2],
-            "Mid X" : clicks[2][0],
-            "Mid Y" : clicks[2][1],
-            "Mid Z" : clicks[2][2]
-        }
-
-    if proper == 1:
-        dict_temp = {}
-        dict_temp = {
-            "id" : matching_row["id"].iloc[0],
-            "oznaczenie" : matching_row["oznaczenie"].iloc[0],
-            "distance" : matching_row["distance"].iloc[0],
-            "Comment" : "SKIPPED"
-        }
+        data.loc[condition, "Left X"] = round(clicks[0][0], 2)
+        data.loc[condition, "Left Y"] = round(clicks[0][1], 2)
+        data.loc[condition, "Left Z"] = round(clicks[0][2], 2)
+        data.loc[condition, "Mid X"] = round(clicks[1][0], 2)
+        data.loc[condition, "Mid Y"] = round(clicks[1][1], 2)
+        data.loc[condition, "Mid Z"] = round(clicks[1][2], 2)
+        data.loc[condition, "Right X"] = round(clicks[2][0], 2)
+        data.loc[condition, "Right Y"] = round(clicks[2][1], 2)
+        data.loc[condition, "Right Z"] = round(clicks[2][2], 2)
         
-    return dict_temp
+    if proper == 1:
+        data.loc[condition, "Comment"] = "Skipped"
+        data.loc[condition, "Mean X"] = mean(x)
+        data.loc[condition, "Mean Y"] = mean(y)
 
 def update_text(text):
     existing_text = coord_text.get_text() # Update text with coordinates
@@ -100,6 +86,7 @@ def reset(event): # Reset button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
+    clicks.clear()
     fig.canvas.draw_idle()
 
 def next(event): # Next button logic
@@ -108,7 +95,7 @@ def next(event): # Next button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
-    out_data.loc[len(out_data)] = save_clicks(proper = 0)
+    save_clicks(proper = 0)
     plt.close()
 
 def skip(event): # Skip button logic
@@ -117,7 +104,7 @@ def skip(event): # Skip button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
-    out_data.loc[len(out_data)] = save_clicks(proper = 1)
+    save_clicks(proper = 1)
     plt.close()
 
 def end_task(event):
@@ -132,10 +119,12 @@ def update_point_size(val): # Slider logic
 
 def angle(file): # Function to grab angle value from the cross-section metadata, based on the name of the section
     filename = "_".join(file.split("_")[-4:])
-    matching_row = data[data["full_name"] == filename]
+    
+    condition = (data["full_name"] == filename)
+    matching_row = data.loc[condition, ["angle"]]
 
     if not matching_row.empty:
-        angle = matching_row["angle"].iloc[0]
+        angle = matching_row.iloc[0, 0]
         return angle
     return 0
 
@@ -204,4 +193,8 @@ for file in scans:
 
     plt.show()
 
-print(out_data)
+print(data)
+data.to_csv("D:\WODY_testy\clipping\csv.csv")
+
+with open(r"D:\WODY_testy\clipping\dictionary.pkl", "wb") as f:
+        pickle.dump(data, f)

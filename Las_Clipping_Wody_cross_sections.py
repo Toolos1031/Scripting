@@ -82,7 +82,7 @@ def process_scan(scan_file, shapefile, out_folder, data):
             distance = round(cols["distance"])
             angle = round(cols["angle"])
 
-            new_filename = os.path.join(out_folder, f"_ID_Oznaczenie_Distance{distance}_Angle{angle}______.las")
+            new_filename = os.path.join(out_folder, f"_ID_Oznaczenie_Distance{distance}_Angle{angle}.las")
 
             clipped_scan.write(new_filename)
 
@@ -91,7 +91,7 @@ def main():
     scan_folder = r"D:\WODY_testy\clipping"
     out_folder = r"D:\WODY_testy\clipping\out"
 
-    data = pd.DataFrame(columns = ["id", "oznaczenie", "distance", "angle", "full_name"])
+    data = pd.DataFrame(columns = ["id", "oznaczenie", "distance", "angle", "full_name", "Left X", "Left Y", "Left Z", "Mid X", "Mid Y", "Mid Z", "Right X", "Right Y", "Right Z", "Comment", "Mean X", "Mean Y"])
 
     scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".las")]
     for scan_file in scans:
