@@ -7,6 +7,7 @@ from matplotlib.widgets import Button, Slider
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+from matplotlib.cbook import get_sample_data
 
 
 ### IMPORTING ###
@@ -18,8 +19,13 @@ root.withdraw()
 file_types = [("Pickle Files", "*.pkl")]
 
 pickle_name = filedialog.askopenfilename(filetypes = file_types, title = "Select pickle file") # Folder with cross-sections
+#pickle_name = r"D:\WODY_testy\clipping\dictionary.pkl" # Folder with cross-sections
 
 folder_name = filedialog.askdirectory(title = "Select directory with scans") # Folder with cross-sections
+#folder_name = r"D:\WODY_testy\clipping\out" # Folder with cross-sections
+
+photo_folder = filedialog.askdirectory(title = "Select directory with photos")
+#photo_folder = r"D:\WODY_testy\clipping\atlas"
 
 with open(pickle_name, "rb") as pick: # File with cross-section metadata
     dict = pickle.load(pick)
@@ -31,6 +37,18 @@ end = False # Global flag for breaking the loop
 data = pd.DataFrame(dict) # Conversion from dict to pd.DF
 
 scans = [os.path.join(folder_name, i) for i in os.listdir(folder_name) if i.endswith(".las")] # List of all cross-sections in the input folder
+
+label_dict = {
+    "1" : "RGS",
+    "2" : "RDS",
+    "3" : "RD",
+    "4" : "RDS",
+    "5" : "RGS"
+}
+
+val = 1
+
+point_list = []
 
 ### FUNCTIONS ###
 
@@ -47,6 +65,7 @@ def onkeypress(event): # Function to grab key press events from the plot
         plt.close()
 
 def onclick(event): # Function to handle click events on the plot
+    global point_list
     if event.inaxes == ax:
         cont, ind = scatter.contains(event)
         if cont:
@@ -61,6 +80,15 @@ def onclick(event): # Function to handle click events on the plot
 
             sizes[idx] = 30 # Set size on picked points
             scatter.set_sizes(sizes)
+
+            try:
+                label = label_dict[str(len(clicks))]
+
+                point_label = ax.text(x[idx], y[idx], z[idx], label, fontsize = 10, color = "red")
+
+                point_list.append(point_label)
+            except:
+                pass
 
             update_text(clicked_point)
 
@@ -99,6 +127,9 @@ def reset(event): # Reset button logic
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
     warning_text.set_text("")
+    for text in point_list:
+        text.remove()
+    point_list.clear()
     clicks.clear()
     fig.canvas.draw_idle()
 
@@ -108,8 +139,7 @@ def next(event): # Next button logic
     scatter.set_color(colors)
     sizes[:] = default_sizes
     scatter.set_sizes(sizes)
-    print(len(clicks))
-    if len(clicks) == 3:
+    if len(clicks) == 5:
         save_clicks(trench_visible = 0)
         plt.close()
     else:
@@ -130,10 +160,15 @@ def end_task(event):
     end = True
     plt.close()
 
-def update_point_size(val): # Slider logic
-    sizes[:] = val
+def photo(event):
+    os.system(photo_path)
+    
+def update_point_size(value): # Slider logic
+    global val
+    sizes[:] = value
     scatter.set_sizes(sizes)
     fig.canvas.draw_idle()
+    val = value
 
 def angle(file): # Function to grab angle value from the cross-section metadata, based on the name of the section
     filename = "_".join(file.split("_")[-4:])
@@ -166,6 +201,8 @@ def get_value(file, column): # Function to grab angle value from the cross-secti
 ### MAIN LOOP ###
 
 for file in scans:
+    filename = "_".join(file.split("_")[-4:])
+    photo_path = os.path.join(photo_folder, filename.split(".")[0]+".png")
 
     if get_value(file, "Comment") == "nan":
         clicks = []
@@ -187,7 +224,7 @@ for file in scans:
         default_colors = np.array([(0, 0, 1, 1)] * len(x))
         colors = default_colors.copy()
 
-        default_sizes = np.full(len(x), 1)
+        default_sizes = np.full(len(x), val)
         sizes = default_sizes.copy()
 
         scatter = ax.scatter(x, y, z, s = sizes, c = colors)
@@ -219,15 +256,25 @@ for file in scans:
         end_button = Button(ax_end, "End")
         end_button.on_clicked(end_task)
 
+        ax_photo = fig.add_axes([0, 0.4, 0.2, 0.075])
+        photo_button = Button(ax_photo, "Photo")
+        photo_button.on_clicked(photo)
+
         ax_slider = fig.add_axes([0.2, 0.15, 0.6, 0.03])
-        point_size_slider = Slider(ax_slider, "Point Size", 1, 20, valinit = 1, valstep = 1)
+        point_size_slider = Slider(ax_slider, "Point Size", 1, 20, valinit = val, valstep = 1)
         point_size_slider.on_changed(update_point_size)
+
+        im = plt.imread(get_sample_data(photo_path))
+        ax_photo_draw = fig.add_axes([0, 0.4, 0.2, 0.5])
+        ax_photo_draw.imshow(im)
+        ax_photo_draw.axis("off")
 
         fig.canvas.mpl_connect("key_press_event", onkeypress)
         fig.canvas.mpl_connect("button_press_event", onclick)
 
         manager = plt.get_current_fig_manager()
-        manager.window.showMaximized()
+        #manager.window.showMaximized()
+        manager.full_screen_toggle()
 
         plt.show()
     else:
@@ -235,9 +282,7 @@ for file in scans:
         print("Section arleady completed - Skipping")
 
     
-
-print(data)
 data.to_csv(os.path.join(folder_name, "csv.csv"))
 
-#with open(pickle_name, "wb") as f:
-#        pickle.dump(data, f)
+with open(pickle_name, "wb") as f:
+        pickle.dump(data, f)
