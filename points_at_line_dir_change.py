@@ -1,8 +1,7 @@
 import geopandas as gpd
-import pandas  as pd
 import math
 
-points = gpd.read_file(r"D:\WODY_testy\lines\points.shp")
+points = gpd.read_file(r"D:\WODY_testy\lines\simplified_points.shp")
 
 points.sort_values("vertex_ind", ascending = True, inplace = True)
 
@@ -30,7 +29,7 @@ def czwartak(dx, dy, fi):
 
 for index in range(unique_ditch_num.shape[0]):
     index_count = int(unique_ditch.iloc[index])
-    
+
     for vertex in range(index_count):
 
         if vertex > 0:
@@ -57,4 +56,4 @@ for index in range(unique_ditch_num.shape[0]):
 
 
 print(points)
-points.to_file(r"D:\WODY_testy\lines\selected.shp")
+points.to_file(r"D:\WODY_testy\lines\simplified_selected.shp")
