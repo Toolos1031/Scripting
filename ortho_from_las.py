@@ -46,7 +46,7 @@ class Dialog(QtWidgets.QDialog):
         QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), self, QtCore.SLOT("reject()"))
 
     def openDirectory(self, line_edit):
-        self.folderPath = QtWidgets.QFileDialog.getExistingDirectory(self, "TEST")
+        self.folderPath = QtWidgets.QFileDialog.getExistingDirectory(self, "Select")
         if self.folderPath:
             line_edit.setText(self.folderPath)
 
@@ -57,7 +57,7 @@ class Dialog(QtWidgets.QDialog):
         super().accept()
 
 
-def test():
+def main():
     main_window =QtWidgets.QApplication.instance().activeWindow()
 
     dlg = Dialog(main_window)
@@ -124,4 +124,4 @@ def test():
 
 
 label = "Scripts/Ortho from Las"
-Metashape.app.addMenuItem(label, test)
+Metashape.app.addMenuItem(label, main)
