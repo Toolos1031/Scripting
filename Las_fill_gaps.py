@@ -6,16 +6,16 @@ import geopandas as gpd
 from tqdm import tqdm
 from shapely.geometry import Point
 from multiprocessing import Pool
+from io import BytesIO
+import tempfile
 
 ### SETUP
 root_folder = r"D:\WODY_testy\zakrety"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
-temp_folder = os.path.join(root_folder, "temp")
-temp2_folder = os.path.join(root_folder, "temp2")
 out_folder = os.path.join(root_folder, "out")
 
-folder_list = [las_folder, poly_folder, temp_folder, temp2_folder, out_folder]
+folder_list = [las_folder, poly_folder, out_folder]
 
 def check_root():
     if os.path.isdir(root_folder):
@@ -75,7 +75,11 @@ def process_scans(scan_path, name):
             name = name.split(".")[0]
             area = int(cols["area"])
 
-            ground.write(temp_folder + "/" + str(name) + str(fid) + "_" + str(area) + "_" + ".las")
+            buf = BytesIO()
+            ground.write(buf)
+            buf.seek(0)
+            clipped_scans[f"{area}"] = buf
+            #ground.write(temp_folder + "/" + str(name) + str(fid) + "_" + str(area) + "_" + ".las")
         else:
             print("fail")
 
@@ -143,7 +147,7 @@ def sample_points_on_mesh(point_cloud, n_points): # Triangulate and sample point
 
     return sampled_points, sampled_colors
 
-def convert(sampled_pts, sampled_cols, temp):
+def convert(sampled_pts, sampled_cols, temp_name, temp_dir):
     # Create a PyVista point cloud for the sampled points.
     sampled_point_cloud = pv.PolyData(sampled_pts)
     if sampled_cols is not None:
@@ -161,7 +165,11 @@ def convert(sampled_pts, sampled_cols, temp):
         las_sampled.red = sampled_cols[:, 0]
         las_sampled.green = sampled_cols[:, 1]
         las_sampled.blue = sampled_cols[:, 2]
-    las_sampled.write(temp2_folder + "/" + temp)
+    
+    file_path = os.path.join(temp_dir, f"{temp_name}.las")
+    las_sampled.write(file_path)
+
+    return file_path
 
 if __name__ == "__main__":
     check_root()
@@ -169,24 +177,24 @@ if __name__ == "__main__":
     las_files = [scan for scan in os.listdir(las_folder) if scan.endswith(".las")] #List with laser scans
 
     for scan in tqdm(las_files, total = len(las_files)):
+        clipped_scans = {}
+
         las_path = os.path.join(las_folder, scan)
         process_scans(las_path, scan)
 
-        scan_name = scan.split(".")[0]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            las_files = []
+            las_files.append(las_path)
 
-        temp_files = [temp for temp in os.listdir(temp_folder) if temp.endswith(".las") and temp.startswith(scan_name)]
+            for key, value in clipped_scans.items():
+                las = load_data(value)
 
-        for temp in temp_files:
-            temp_path = os.path.join(temp_folder, temp)
-            las = load_data(temp_path)
+                poly_area = int(key)
+                n_sample = poly_area * 60
+                sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample)
 
-            poly_area = temp.split("_")[1]
-            n_samples = int(poly_area) * 60
-            sampled_pts, sampled_cols = sample_points_on_mesh(las, n_samples)
-
-            convert(sampled_pts, sampled_cols, temp)
-
-        full_name = [os.path.join(temp2_folder, file) for file in temp_files if file.startswith(scan_name)]
-        full_name.append(las_path)
-        cmd = 'las2las -i ' + ' '.join(full_name) + f' -merged -o {out_folder + "/" + scan}'
-        os.system(cmd)
+                file_path = convert(sampled_pts, sampled_cols, key, temp_dir)
+                las_files.append(file_path)
+                
+            cmd = 'las2las -i ' + ' '.join(las_files) + f' -merged -o {out_folder + "/" + scan}'
+            os.system(cmd)

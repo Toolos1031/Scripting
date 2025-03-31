@@ -88,7 +88,9 @@ def main():
         try:
             las_path = lasFolder + "/" + name.split("'")[1] + ".las"
             chunk.importPointCloud(las_path, is_laser_scan = False)
-            chunk.addPhotos(photos)
+            chunk.addPhotos(photos, load_reference = True, load_xmp_accuracy = True, load_xmp_orientation = True, load_xmp_antenna = True, load_xmp_calibration = True)
+            accuracy = Metashape.Vector((1, 1, 1))
+            chunk.camera_rotation_accuracy = accuracy
         except:
             raise Exception(f"Failed to load data for chunk: {name}")
 
@@ -100,7 +102,7 @@ def main():
         proj = Metashape.OrthoProjection()
         proj.crs = Metashape.CoordinateSystem("EPSG::2180")
         try:
-            chunk.matchPhotos(keypoint_limit = 40000, tiepoint_limit = 10000, generic_preselection = True, reference_preselection = True)
+            chunk.matchPhotos(downscale = 1, keypoint_limit = 40000, tiepoint_limit = 10000, generic_preselection = True, reference_preselection = True)
             doc.save()
             chunk.alignCameras()
             doc.save()

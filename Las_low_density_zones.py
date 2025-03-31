@@ -8,15 +8,15 @@ import geopandas as gpd
 from shapely import wkt
 import os
 from tqdm import tqdm
+import tempfile
 
 ### Setup ###
 root_folder = r"D:\WODY_testy\zakrety"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 tif_folder = os.path.join(root_folder, "tif")
-temp_folder = os.path.join(root_folder, "temp")
 
-folder_list = [las_folder, poly_folder, tif_folder, temp_folder]
+folder_list = [las_folder, poly_folder, tif_folder]
 
 
 def check_root():
@@ -73,66 +73,68 @@ def process_scans(scan):
         dst.write(binary_raster, 1)
 
 def process_raster(tif):
-    raster_path = os.path.join(tif_folder, tif)
-    poly_path = os.path.join(temp_folder, tif.split(".")[0] + ".shp")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        raster_path = os.path.join(tif_folder, tif)
+        #poly_path = os.path.join(temp_folder, tif.split(".")[0] + ".shp")
+        poly_path = f"{tmpdir}/out.shp"
 
-    raster = gdal.Open(raster_path)
-    raster_band = raster.GetRasterBand(1)
+        raster = gdal.Open(raster_path)
+        raster_band = raster.GetRasterBand(1)
 
-    driver = ogr.GetDriverByName("ESRI Shapefile") # Set up the output shapefile
-    out_ds = driver.CreateDataSource(poly_path)
+        driver = ogr.GetDriverByName("ESRI Shapefile") # Set up the output shapefile
+        out_ds = driver.CreateDataSource(poly_path)
 
-    srs = osr.SpatialReference() # Set the CRS
-    srs.ImportFromEPSG(2180)
+        srs = osr.SpatialReference() # Set the CRS
+        srs.ImportFromEPSG(2180)
 
-    out_layer = out_ds.CreateLayer("polygonized", srs, geom_type = ogr.wkbPolygon) # Create layer
+        out_layer = out_ds.CreateLayer("polygonized", srs, geom_type = ogr.wkbPolygon) # Create layer
 
-    field_defn = ogr.FieldDefn("DN", ogr.OFTInteger) # Create attributes
-    out_layer.CreateField(field_defn)
+        field_defn = ogr.FieldDefn("DN", ogr.OFTInteger) # Create attributes
+        out_layer.CreateField(field_defn)
 
-    gdal.Polygonize(raster_band, None, out_layer, 0, [], callback = None) # Polygonize the raster and save in shp
+        gdal.Polygonize(raster_band, None, out_layer, 0, [], callback = None) # Polygonize the raster and save in shp
 
-    raster = None # Clear gdal
-    out_ds = None
+        raster = None # Clear gdal
+        out_ds = None
 
-    shape = gpd.read_file(poly_path) # Read the poly and convert to gpd
+        shape = gpd.read_file(poly_path) # Read the poly and convert to gpd
 
-    max_idx = shape.geometry.area.idxmax() # Get the biggest poly and remove it
-    shape = shape.drop(index = max_idx)
+        max_idx = shape.geometry.area.idxmax() # Get the biggest poly and remove it
+        shape = shape.drop(index = max_idx)
 
-    indices_to_drop = []
+        indices_to_drop = []
 
-    for cols, rows in shape.iterrows(): # Also detele each poly smaller than
-        if rows["geometry"].area < 20:
-            indices_to_drop.append(cols)
+        for cols, rows in shape.iterrows(): # Also detele each poly smaller than
+            if rows["geometry"].area < 20:
+                indices_to_drop.append(cols)
 
-    shape = shape.drop(index = indices_to_drop)
+        shape = shape.drop(index = indices_to_drop)
 
-    list_interiors = []
-    polygons = []
+        list_interiors = []
+        polygons = []
 
-    for cols, rows in shape.iterrows():
-        poly = wkt.loads(str(rows["geometry"])) # Convert to WKT
+        for cols, rows in shape.iterrows():
+            poly = wkt.loads(str(rows["geometry"])) # Convert to WKT
 
-        poly = poly.buffer(2)
+            poly = poly.buffer(2)
 
-        for interior in poly.interiors: # Find all holes smaller than 20, big holes are allowed
-            p = Polygon(interior)
-            if p.area > 20:
-                list_interiors.append(interior)
+            for interior in poly.interiors: # Find all holes smaller than 20, big holes are allowed
+                p = Polygon(interior)
+                if p.area > 20:
+                    list_interiors.append(interior)
 
-        new_polygon = Polygon(poly.exterior.coords, holes = list_interiors) 
-        polygons.append(new_polygon)
+            new_polygon = Polygon(poly.exterior.coords, holes = list_interiors) 
+            polygons.append(new_polygon)
 
 
-    polys = gpd.GeoDataFrame({"geometry" : polygons}) # Go back to gpd
+        polys = gpd.GeoDataFrame({"geometry" : polygons}) # Go back to gpd
 
-    polys.set_crs("EPSG:2180", inplace = True)
+        polys.set_crs("EPSG:2180", inplace = True)
 
-    polys["geometry"] = polys["geometry"].simplify(tolerance = 5, preserve_topology = True) # At the end simplify it
+        polys["geometry"] = polys["geometry"].simplify(tolerance = 5, preserve_topology = True) # At the end simplify it
 
-    poly_path = os.path.join(poly_folder, tif.split(".")[0] + ".shp")
-    polys.to_file(poly_path)
+        poly_path = os.path.join(poly_folder, tif.split(".")[0] + ".shp")
+        polys.to_file(poly_path)
 
 if __name__ == "__main__":
     check_root()
