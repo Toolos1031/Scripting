@@ -6,6 +6,12 @@ import os
 from tqdm import tqdm
 from multiprocessing import Pool
 
+### SETUP
+
+poly_path = r"D:\WODY_testy\clipping\profiles.shp"
+scan_folder = r"D:\WODY_testy\clipping"
+out_folder = r"D:\WODY_testy\clipping\out"
+
 
 # Function for calculating the extent of a laserscan
 def bbox(scan):
@@ -69,16 +75,11 @@ def process_scan(scan_file, shapefile, out_folder):
 
             clipped_scan.write(new_filename)
 
-def main():
-    shapefile = gpd.read_file(r"D:\WODY_testy\clipping\profiles.shp")
-    scan_folder = r"D:\WODY_testy\clipping"
-    out_folder = r"D:\WODY_testy\clipping\out"
+if __name__ == "__main__":
+    shapefile = gpd.read_file(poly_path)
 
     scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".las")]
     for scan_file in scans:
         process_scan(scan_file, shapefile, out_folder)
 
 
-
-if __name__ == "__main__":
-    main()
