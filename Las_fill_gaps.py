@@ -17,11 +17,11 @@ out_folder = os.path.join(root_folder, "out")
 
 folder_list = [las_folder, poly_folder, out_folder]
 
-def check_root():
+def check_root(): # Check if the root folder and other dirs exist
     if os.path.isdir(root_folder):
         for folder in folder_list:
             name = folder.split("\\")[-1]
-            if not os.path.isdir(folder):
+            if not os.path.isdir(folder): # Create them if needed
                 os.mkdir(folder)
                 print(f"Created folder for {name}")
             else:
@@ -30,7 +30,7 @@ def check_root():
         input("Root folder does not exist, PRESS ENTER TO EXIT")
         raise SystemExit(0)
 
-def check_points(args):
+def check_points(args): # Check if points are inside of the polygon. Function needed for multiprocessing
     chunk, polygon = args
     return [polygon.contains(Point(x, y)) for x, y in chunk]
 
@@ -40,7 +40,7 @@ def process_scans(scan_path, name):
     poly = gpd.read_file(poly_folder + "/" + name.split(".")[0] + ".shp") # Import polygons based on scan name
     poly["area"] = poly["geometry"].area
 
-    for rows, cols in tqdm(poly.iterrows(), total = len(poly)):
+    for rows, cols in tqdm(poly.iterrows(), total = len(poly)): # For each polygon in the file
         polygon = cols["geometry"]
         xmin, ymin, xmax, ymax = cols["geometry"].bounds # Get the polygons bounding box
 
@@ -56,26 +56,24 @@ def process_scans(scan_path, name):
         num_cores = 16
         chunks = np.array_split(filtered_points, num_cores)
 
-        with Pool(num_cores) as pool:
+        with Pool(num_cores) as pool: # Select points using multiprocessing
             results = pool.map(check_points, [(chunk, polygon) for chunk in chunks])
 
-        inside_polygon = np.concatenate(results)
+        inside_polygon = np.concatenate(results) # Combine all results
 
         if inside_polygon.any(): # If the masking result is not empty
             final_indices = np.where(polygon_mask)[0][inside_polygon] # Clip and go back to initial array size
 
-            clipped_scan = laspy.LasData(scan.header)
-            clipped_scan.points = scan.points[final_indices].copy()
+            clipped_scan = laspy.LasData(scan.header) # Create a las entity for clipped points
+            clipped_scan.points = scan.points[final_indices].copy() # Insert the points into las
 
-            ground_only = clipped_scan.classification == 2
+            ground_only = clipped_scan.classification == 2 # Take only the ground and create a new entity
             ground = laspy.LasData(scan.header)
             ground.points = clipped_scan.points[np.array(ground_only)]
 
-            fid = int(cols["FID"])
-            name = name.split(".")[0]
             area = int(cols["area"])
 
-            buf = BytesIO()
+            buf = BytesIO() # Save the file in memory
             ground.write(buf)
             buf.seek(0)
             clipped_scans[f"{area}"] = buf
@@ -176,25 +174,25 @@ if __name__ == "__main__":
 
     las_files = [scan for scan in os.listdir(las_folder) if scan.endswith(".las")] #List with laser scans
 
-    for scan in tqdm(las_files, total = len(las_files)):
-        clipped_scans = {}
+    for scan in tqdm(las_files, total = len(las_files)): # For each scan in dir
+        clipped_scans = {} # Create a dict for clipped scans in memory
 
         las_path = os.path.join(las_folder, scan)
-        process_scans(las_path, scan)
+        process_scans(las_path, scan) # Clip scans
 
         with tempfile.TemporaryDirectory() as temp_dir:
             las_files = []
             las_files.append(las_path)
 
-            for key, value in clipped_scans.items():
+            for key, value in clipped_scans.items(): # For each clipped scan in dict
                 las = load_data(value)
 
                 poly_area = int(key)
-                n_sample = poly_area * 60
-                sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample)
+                n_sample = poly_area * 60 # Sampled points based on area
+                sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
 
-                file_path = convert(sampled_pts, sampled_cols, key, temp_dir)
+                file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
                 las_files.append(file_path)
                 
-            cmd = 'las2las -i ' + ' '.join(las_files) + f' -merged -o {out_folder + "/" + scan}'
+            cmd = 'las2las -i ' + ' '.join(las_files) + f' -merged -o {out_folder + "/" + scan}' # Merge them together
             os.system(cmd)
