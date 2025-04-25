@@ -6,12 +6,14 @@ from osgeo import gdal, ogr, osr
 from shapely.geometry import Polygon
 import geopandas as gpd
 from shapely import wkt
+from shapely.geometry.polygon import orient
 import os
 from tqdm import tqdm
 import tempfile
+import pandas as pd
 
 ### Setup ###
-root_folder = r"D:\WODY_testy\zakrety"
+root_folder = r"D:\___WodyPolskie\Gora\winsko_przetwarzanie"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 tif_folder = os.path.join(root_folder, "tif")
@@ -105,33 +107,61 @@ def process_raster(tif):
         indices_to_drop = []
 
         for cols, rows in shape.iterrows(): # Also detele each poly smaller than
-            if rows["geometry"].area < 20:
+            if rows["geometry"].area < 100:
                 indices_to_drop.append(cols)
 
         shape = shape.drop(index = indices_to_drop)
 
-        list_interiors = []
         polygons = []
+        list_interiors = []
 
         for cols, rows in shape.iterrows():
             poly = wkt.loads(str(rows["geometry"])) # Convert to WKT
 
-            poly = poly.buffer(2)
+            poly = poly.buffer(4)
 
-            for interior in poly.interiors: # Find all holes smaller than 20, big holes are allowed
-                p = Polygon(interior)
-                if p.area > 20:
-                    list_interiors.append(interior)
-
-            new_polygon = Polygon(poly.exterior.coords, holes = list_interiors) 
-            polygons.append(new_polygon)
-
+            if not poly.interiors:
+                new_polygon = Polygon(poly.exterior.coords)
+                polygons.append(new_polygon)
+            else:
+                for interior in poly.interiors: # Find all holes smaller than 20, big holes are allowed
+                    p = Polygon(interior)
+                    if p.area > 100:
+                        list_interiors.append(interior)
+                        new_polygon = Polygon(poly.exterior.coords, holes = list_interiors)
+                        polygons.append(new_polygon)
+                    else:
+                        new_polygon = Polygon(poly.exterior.coords)
+                        polygons.append(new_polygon)
+                
 
         polys = gpd.GeoDataFrame({"geometry" : polygons}) # Go back to gpd
 
         polys.set_crs("EPSG:2180", inplace = True)
 
         polys["geometry"] = polys["geometry"].simplify(tolerance = 5, preserve_topology = True) # At the end simplify it
+        polys["geometry"] = polys["geometry"].apply(lambda geom: orient(geom, sign = 1.0))
+
+        poly_path = os.path.join(poly_folder, tif.split(".")[0] + ".shp")
+        polys.to_file(poly_path)
+        polys = gpd.read_file(poly_path) # Read the poly and convert to gpd
+
+        polys_singlepoly = polys[polys.geometry.type == "Polygon"]
+        polys_mutlipoly = polys[polys.geometry.type == "MultiPolygon"]
+
+        for cols, rows in polys_mutlipoly.iterrows():
+            Series_geometries = pd.Series(rows.geometry)
+            df = pd.concat([gpd.GeoDataFrame(rows, geometry = Series_geometries, crs = polys_mutlipoly.crs).T]*len(Series_geometries), ignore_index = True)
+            #df["geometry"] = Series_geometries
+            polys_singlepoly = pd.concat([polys_singlepoly, df])
+
+        polys_singlepoly.reset_index(inplace = True, drop = True)
+
+        mode_idx = polys.geometry.area.mode().iloc[0]
+        
+        for cols, rows in polys.iterrows():
+            if rows["geometry"].area == mode_idx:
+                polys = polys.drop(index = cols)
 
         poly_path = os.path.join(poly_folder, tif.split(".")[0] + ".shp")
         polys.to_file(poly_path)

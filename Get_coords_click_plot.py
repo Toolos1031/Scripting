@@ -264,10 +264,13 @@ for file in scans:
         point_size_slider = Slider(ax_slider, "Point Size", 1, 20, valinit = val, valstep = 1)
         point_size_slider.on_changed(update_point_size)
 
-        im = plt.imread(get_sample_data(photo_path))
-        ax_photo_draw = fig.add_axes([0, 0.4, 0.2, 0.5])
-        ax_photo_draw.imshow(im)
-        ax_photo_draw.axis("off")
+        try:
+            im = plt.imread(get_sample_data(photo_path))
+            ax_photo_draw = fig.add_axes([0, 0.4, 0.2, 0.5])
+            ax_photo_draw.imshow(im)
+            ax_photo_draw.axis("off")
+        except:
+            pass
 
         fig.canvas.mpl_connect("key_press_event", onkeypress)
         fig.canvas.mpl_connect("button_press_event", onclick)
@@ -284,5 +287,5 @@ for file in scans:
     
 data.to_csv(os.path.join(folder_name, "csv.csv"))
 
-with open(pickle_name, "wb") as f:
-        pickle.dump(data, f)
+#with open(pickle_name, "wb") as f:
+#        pickle.dump(data, f)

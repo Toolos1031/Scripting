@@ -33,7 +33,7 @@ def check_points(args):
 
 def database(data, cols):
     dict = {}
-    dict["id"] = cols["id"]
+    dict["fid"] = cols["fid"]
     #dict["oznaczenie"] = cols["oznaczenie"]
     dict["distance"] = round(cols["distance"])
     dict["angle"] = round(cols["angle"])
@@ -44,7 +44,11 @@ def database(data, cols):
 # Main processing function
 def process_scan(scan_file, shapefile, out_folder, data):
     scan = laspy.read(scan_file)
-    points = np.vstack((scan.x, scan.y)).T # Prepare data for shapely
+
+    ground_only = scan.classification != 4
+    ground = laspy.LasData(scan.header)
+    ground.points = scan.points[np.array(ground_only)]
+    points = np.vstack((ground.x, ground.y)).T # Prepare data for shapely
 
     intersecting_polygons = shapefile[shapefile.geometry.intersects(bbox(scan))] # Use only polygons that are intersecting the laser scan
 
@@ -87,9 +91,9 @@ def process_scan(scan_file, shapefile, out_folder, data):
             clipped_scan.write(new_filename)
 
 def main():
-    shapefile = gpd.read_file(r"D:\WODY_testy\clipping\profiles.shp")
-    scan_folder = r"D:\WODY_testy\clipping"
-    out_folder = r"D:\WODY_testy\clipping\out"
+    shapefile = gpd.read_file(r"D:\___WodyPolskie\Gora\przekroje\buffered.shp")
+    scan_folder = r"D:\___WodyPolskie\Gora\winsko_przetwarzanie\las"
+    out_folder = r"D:\___WodyPolskie\Gora\przekroje\clipped\a"
 
     data = pd.DataFrame(columns = ["id", "oznaczenie", "distance", "angle", "full_name", "Left X", "Left Y", "Left Z", "Mid X", "Mid Y", "Mid Z", "Right X", "Right Y", "Right Z", "Comment", "Mean X", "Mean Y"])
 
@@ -97,7 +101,7 @@ def main():
     for scan_file in scans:
         process_scan(scan_file, shapefile, out_folder, data)
 
-    with open(r"D:\WODY_testy\clipping\dictionary.pkl", "wb") as pick:
+    with open(r"D:\___WodyPolskie\Gora\przekroje\clipped\a\dictionary.pkl", "wb") as pick:
         pickle.dump(data, pick)
 
 

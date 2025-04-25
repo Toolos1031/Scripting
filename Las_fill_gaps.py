@@ -10,7 +10,7 @@ from io import BytesIO
 import tempfile
 
 ### SETUP
-root_folder = r"D:\WODY_testy\zakrety"
+root_folder = r"D:\___WodyPolskie\Gora\winsko_przetwarzanie"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 out_folder = os.path.join(root_folder, "out")
@@ -36,6 +36,20 @@ def check_points(args): # Check if points are inside of the polygon. Function ne
 
 def process_scans(scan_path, name):
     scan = laspy.read(scan_path)
+    try:
+        scan.intensity[:] = 0
+        scan.return_number[:] = 0
+        scan.number_of_returns[:] = 0
+        scan.scan_direction_flag[:] = 0
+        scan.scan_angle_rank[:] = 0
+        scan.user_data[:] = 0
+        scan.point_source_id[:] = 0
+        scan.gps_time[:] = 0
+    except:
+        pass
+
+    scan.write(scan_path)
+
     points = np.vstack((scan.x, scan.y)).T # Prepare data for shapely
     poly = gpd.read_file(poly_folder + "/" + name.split(".")[0] + ".shp") # Import polygons based on scan name
     poly["area"] = poly["geometry"].area
@@ -163,6 +177,7 @@ def convert(sampled_pts, sampled_cols, temp_name, temp_dir):
         las_sampled.red = sampled_cols[:, 0]
         las_sampled.green = sampled_cols[:, 1]
         las_sampled.blue = sampled_cols[:, 2]
+        las_sampled.classification[:] = 2
     
     file_path = os.path.join(temp_dir, f"{temp_name}.las")
     las_sampled.write(file_path)
@@ -188,11 +203,29 @@ if __name__ == "__main__":
                 las = load_data(value)
 
                 poly_area = int(key)
-                n_sample = poly_area * 60 # Sampled points based on area
+                n_sample = poly_area * 100 # Sampled points based on area
                 sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
 
                 file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
                 las_files.append(file_path)
                 
-            cmd = 'las2las -i ' + ' '.join(las_files) + f' -merged -o {out_folder + "/" + scan}' # Merge them together
-            os.system(cmd)
+            if len(las_files) > 150:
+                temp_scan = scan.split(".")[0] + "temp." + scan.split(".")[1]
+                file = os.path.join(out_folder, temp_scan)
+                las_files.append(file)
+
+                chunks = np.array_split(las_files, 2)
+ 
+                chunk1 = chunks[0]
+                chunk2 = chunks[1]
+
+                cmd = 'las2las -i ' + ' '.join(chunk1) + f' -merged -o {out_folder + "/" + temp_scan}' # Merge them together
+                os.system(cmd)
+
+                cmd = 'las2las -i ' + ' '.join(chunk2) + f' -merged -o {out_folder + "/" + scan}' # Merge them together
+                os.system(cmd)
+
+                os.remove(file)
+            else:
+                cmd = 'las2las -i ' + ' '.join(las_files) + f' -merged -o {out_folder + "/" + scan}' # Merge them together
+                os.system(cmd)

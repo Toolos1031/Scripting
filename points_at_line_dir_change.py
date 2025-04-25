@@ -1,7 +1,7 @@
 import geopandas as gpd
 import math
 
-points = gpd.read_file(r"D:\WODY_testy\lines\simplified_points.shp")
+points = gpd.read_file(r"D:\___WodyPolskie\Gora\przekroje\vertices.shp")
 
 points.sort_values("vertex_ind", ascending = True, inplace = True)
 
@@ -11,6 +11,7 @@ points["Azimuth"] = ""
 diff_thresh = 20
 
 unique_ditch = points["fid"].value_counts()
+print(unique_ditch)
 unique_ditch_num = unique_ditch.index
 
 def condition(val):
@@ -55,5 +56,5 @@ for index in range(unique_ditch_num.shape[0]):
             pass
 
 
-print(points)
-points.to_file(r"D:\WODY_testy\lines\simplified_selected.shp")
+#print(points)
+points.to_file(r"D:\___WodyPolskie\Gora\przekroje\selected.shp")
