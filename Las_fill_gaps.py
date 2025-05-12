@@ -8,9 +8,10 @@ from shapely.geometry import Point
 from multiprocessing import Pool
 from io import BytesIO
 import tempfile
+import random
 
 ### SETUP
-root_folder = r"E:\____Wody_polskie\Przetwarzanie"
+root_folder = r"D:\___WodyPolskie\Gora\Przetwarzanie\przetwarzanie"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 out_folder = os.path.join(root_folder, "out")
@@ -85,7 +86,9 @@ def process_scans(scan_path, name):
             ground = laspy.LasData(scan.header)
             ground.points = clipped_scan.points[np.array(ground_only)]
 
-            area = int(cols["area"])
+
+            number = int(cols["area"])
+            area = f"{number}_{random.randint(1, 10000)}"
 
             buf = BytesIO() # Save the file in memory
             ground.write(buf)
@@ -178,7 +181,8 @@ def convert(sampled_pts, sampled_cols, temp_name, temp_dir):
         las_sampled.green = sampled_cols[:, 1]
         las_sampled.blue = sampled_cols[:, 2]
         las_sampled.classification[:] = 2
-    
+
+    #temp_dir = r"D:\___WodyPolskie\Gora\Przetwarzanie\przetwarzanie\temp"
     file_path = os.path.join(temp_dir, f"{temp_name}.las")
     las_sampled.write(file_path)
 
@@ -202,13 +206,15 @@ if __name__ == "__main__":
             for key, value in clipped_scans.items(): # For each clipped scan in dict
                 las = load_data(value)
 
-                poly_area = int(key)
+                key_area = key.split("_")[0]
+                poly_area = int(key_area)
                 n_sample = poly_area * 100 # Sampled points based on area
                 sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
 
                 file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
                 las_files.append(file_path)
                 
+            if len(las_files) > 120:
             if len(las_files) > 120:
                 temp_scan = scan.split(".")[0] + "temp." + scan.split(".")[1]
                 file = os.path.join(out_folder, temp_scan)

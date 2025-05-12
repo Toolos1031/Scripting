@@ -2,7 +2,7 @@ import geopandas as gpd
 import math
 from tqdm import tqdm
 
-points = gpd.read_file(r"E:\____Wody_polskie\Przekroje\punkty\verticies.shp")
+points = gpd.read_file(r"Z:\______DLA JANKA\Nowy folder\wierzcholki.shp")
 
 points.sort_values("vertex_ind", ascending = True, inplace = True)
 
@@ -12,9 +12,11 @@ points["Azimuth"] = ""
 diff_thresh = 20
 
 unique_ditch = points["FID_EWM_Ro"].value_counts()
+print(unique_ditch)
 unique_ditch_num = unique_ditch.index
 
 def condition(val):
+    return (points["FID_EWM_Ro"] == unique_ditch_num[index]) & (points["vertex_ind"] == vertex + val)
     return (points["FID_EWM_Ro"] == unique_ditch_num[index]) & (points["vertex_ind"] == vertex + val)
 
 def czwartak(dx, dy, fi):
@@ -57,4 +59,5 @@ for index in tqdm(range(unique_ditch_num.shape[0])):
 
 
 #print(points)
+points.to_file(r"Z:\______DLA JANKA\Nowy folder\selected2.shp")
 points.to_file(r"E:\____Wody_polskie\Przekroje\punkty\selected.shp")
