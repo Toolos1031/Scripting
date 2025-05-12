@@ -13,7 +13,7 @@ import tempfile
 import pandas as pd
 
 ### Setup ###
-root_folder = r"D:\___WodyPolskie\Gora\winsko_przetwarzanie"
+root_folder = r"E:\____Wody_polskie\Przetwarzanie"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 tif_folder = os.path.join(root_folder, "tif")

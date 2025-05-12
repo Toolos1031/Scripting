@@ -10,7 +10,7 @@ from io import BytesIO
 import tempfile
 
 ### SETUP
-root_folder = r"D:\___WodyPolskie\Gora\winsko_przetwarzanie"
+root_folder = r"E:\____Wody_polskie\Przetwarzanie"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 out_folder = os.path.join(root_folder, "out")
@@ -209,7 +209,7 @@ if __name__ == "__main__":
                 file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
                 las_files.append(file_path)
                 
-            if len(las_files) > 150:
+            if len(las_files) > 120:
                 temp_scan = scan.split(".")[0] + "temp." + scan.split(".")[1]
                 file = os.path.join(out_folder, temp_scan)
                 las_files.append(file)
