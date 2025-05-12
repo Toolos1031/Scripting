@@ -2,7 +2,7 @@ import geopandas as gpd
 import math
 from tqdm import tqdm
 
-points = gpd.read_file(r"Z:\______DLA JANKA\Nowy folder\wierzcholki.shp")
+points = gpd.read_file(r"D:\___WodyPolskie\Gora\przekroje\jemielno_12_05_V2\vertices.shp")
 
 points.sort_values("vertex_ind", ascending = True, inplace = True)
 
@@ -17,8 +17,7 @@ unique_ditch_num = unique_ditch.index
 
 def condition(val):
     return (points["FID_EWM_Ro"] == unique_ditch_num[index]) & (points["vertex_ind"] == vertex + val)
-    return (points["FID_EWM_Ro"] == unique_ditch_num[index]) & (points["vertex_ind"] == vertex + val)
-
+    
 def czwartak(dx, dy, fi):
     if dx > 0 and dy > 0:
         return fi
@@ -47,7 +46,7 @@ for index in tqdm(range(unique_ditch_num.shape[0])):
                 azimuth = czwartak(dy, dx, fi)
                 points.loc[condition(0), "Azimuth"] = azimuth
             except:
-                print(f"\n\n\n\n SKIPPED LINE at vertex: {vertex}")
+                pass
     
     for vertex in range(index_count - 1):
         try:
@@ -59,5 +58,4 @@ for index in tqdm(range(unique_ditch_num.shape[0])):
 
 
 #print(points)
-points.to_file(r"Z:\______DLA JANKA\Nowy folder\selected2.shp")
-points.to_file(r"E:\____Wody_polskie\Przekroje\punkty\selected.shp")
+points.to_file(r"D:\___WodyPolskie\Gora\przekroje\jemielno_12_05_V2\selected.shp")

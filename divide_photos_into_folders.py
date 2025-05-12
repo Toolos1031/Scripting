@@ -1,7 +1,7 @@
 import os
 import shutil
 
-photo_path = r"E:\____Wody_polskie\Przekroje\JEMIELNO\test"
+photo_path = r"D:\___WodyPolskie\Gora\przekroje\jemielno_12_05_V2\atlas"
 
 photo_list = [photo for photo in os.listdir(photo_path) if photo.endswith(".png")]
 flight_list = []
