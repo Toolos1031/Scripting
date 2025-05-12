@@ -116,6 +116,10 @@ def main():
                 compression.tiff_overviews = False
                 compression.tiff_compression = Metashape.ImageCompression.TiffCompressionLZW
                 compression.tiff_big = True
+                chunk.exportRaster(path = outFolder + "/" + name.split("'")[1] + "DEM.tif",
+                                source_data = Metashape.ElevationData,
+                                projection = proj,
+                                image_compression = compression)
                 chunk.exportRaster(path = outFolder + "/" + name.split("'")[1] + ".tif", 
                                 source_data = Metashape.OrthomosaicData, 
                                 projection = proj, 
