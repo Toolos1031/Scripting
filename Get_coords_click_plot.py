@@ -70,7 +70,7 @@ def onclick(event): # Function to handle click events on the plot
         cont, ind = scatter.contains(event)
         if cont:
             idx = ind["ind"][0]
-            clicked_point = f"Coord X: {round(x[idx], 2)}, Coord Y: {round(y[idx], 2)}, Coord Z: {round(z[idx], 2)}"
+            clicked_point = f"Coord X: {round(x[idx], 3)}, Coord Y: {round(y[idx], 3)}, Coord Z: {round(z[idx], 3)}"
             print(f"Clicked on point number: {idx}")
 
             clicks.append((x[idx], y[idx], z[idx]))
@@ -98,15 +98,21 @@ def save_clicks(trench_visible):
     condition = (data["full_name"] == filename)
 
     if trench_visible == 0:
-        data.loc[condition, "Left X"] = round(clicks[0][0], 2)
-        data.loc[condition, "Left Y"] = round(clicks[0][1], 2)
-        data.loc[condition, "Left Z"] = round(clicks[0][2], 2)
-        data.loc[condition, "Mid X"] = round(clicks[1][0], 2)
-        data.loc[condition, "Mid Y"] = round(clicks[1][1], 2)
-        data.loc[condition, "Mid Z"] = round(clicks[1][2], 2)
-        data.loc[condition, "Right X"] = round(clicks[2][0], 2)
-        data.loc[condition, "Right Y"] = round(clicks[2][1], 2)
-        data.loc[condition, "Right Z"] = round(clicks[2][2], 2)
+        data.loc[condition, "RGS X"] = round(clicks[0][0], 3)
+        data.loc[condition, "RGS Y"] = round(clicks[0][1], 3)
+        data.loc[condition, "RGS Z"] = round(clicks[0][2], 3)
+        data.loc[condition, "RDS X"] = round(clicks[1][0], 3)
+        data.loc[condition, "RDS Y"] = round(clicks[1][1], 3)
+        data.loc[condition, "RDS Z"] = round(clicks[1][2], 3)
+        data.loc[condition, "RD X"] = round(clicks[2][0], 3)
+        data.loc[condition, "RD Y"] = round(clicks[2][1], 3)
+        data.loc[condition, "RD Z"] = round(clicks[2][2], 3)
+        data.loc[condition, "RDS_X"] = round(clicks[3][0], 3)
+        data.loc[condition, "RDS_Y"] = round(clicks[3][1], 3)
+        data.loc[condition, "RDS_Z"] = round(clicks[3][2], 3)
+        data.loc[condition, "RGS_X"] = round(clicks[4][0], 3)
+        data.loc[condition, "RGS_Y"] = round(clicks[4][1], 3)
+        data.loc[condition, "RGS_Z"] = round(clicks[4][2], 3)
         data.loc[condition, "Comment"] = "Completed"
         
     if trench_visible == 1:
