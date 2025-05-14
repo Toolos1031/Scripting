@@ -17,7 +17,7 @@ obj = CC.loadFile(path, params)
 
 child = obj.getChild(0)
 
-bbox = child.ccBBox()
+bbox = child.ccBBox()asssssssssssssssssssssssss
 
 grid = pycc.ccRasterGrid()
 
