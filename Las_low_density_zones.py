@@ -13,7 +13,7 @@ import tempfile
 import pandas as pd
 
 ### Setup ###
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie"
+root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\FIXING"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 tif_folder = os.path.join(root_folder, "tif")
@@ -124,7 +124,7 @@ def process_raster(tif):
                 new_polygon = Polygon(poly.exterior.coords)
                 polygons.append(new_polygon)
             else:
-                for interior in poly.interiors: # Find all holes smaller than 20, big holes are allowed
+                for interior in poly.interiors: # Find all holes smaller than 100, big holes are allowed
                     p = Polygon(interior)
                     if p.area > 100:
                         list_interiors.append(interior)
@@ -138,9 +138,17 @@ def process_raster(tif):
         polys = gpd.GeoDataFrame({"geometry" : polygons}) # Go back to gpd
 
         polys.set_crs("EPSG:2180", inplace = True)
+        
+        polys["geometry"] = polys["geometry"].buffer(0) # Simple geometry clean up
+        dissolved = polys.dissolve()
+        singleparts = dissolved.explode(index_parts = False).reset_index(drop = True)
+
+        polys = singleparts
 
         polys["geometry"] = polys["geometry"].simplify(tolerance = 5, preserve_topology = True) # At the end simplify it
         polys["geometry"] = polys["geometry"].apply(lambda geom: orient(geom, sign = 1.0))
+
+        polys["geometry"] = polys["geometry"].buffer(0) # Simple geometry clean up
 
         poly_path = os.path.join(poly_folder, tif.split(".")[0] + ".shp")
         polys.to_file(poly_path)
