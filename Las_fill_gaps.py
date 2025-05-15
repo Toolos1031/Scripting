@@ -17,8 +17,7 @@ poly_folder = os.path.join(root_folder, "poly")
 out_folder = os.path.join(root_folder, "out")
 
 folder_list = [las_folder, poly_folder, out_folder]
- 
-END = False
+
 
 def check_root(): # Check if the root folder and other dirs exist
     if os.path.isdir(root_folder):
@@ -57,51 +56,49 @@ def process_scans(scan_path, name):
     poly = gpd.read_file(poly_folder + "/" + name.split(".")[0] + ".shp") # Import polygons based on scan name
     poly["area"] = poly["geometry"].area
 
-    if len(poly) < 260:
-        for rows, cols in tqdm(poly.iterrows(), total = len(poly)): # For each polygon in the file
-            polygon = cols["geometry"]
-            xmin, ymin, xmax, ymax = cols["geometry"].bounds # Get the polygons bounding box
+    for rows, cols in tqdm(poly.iterrows(), total = len(poly)): # For each polygon in the file
+        polygon = cols["geometry"]
+        xmin, ymin, xmax, ymax = cols["geometry"].bounds # Get the polygons bounding box
 
-            polygon_mask = (
-                (points[:, 0] >= xmin) & 
-                (points[:, 0] <= xmax) & 
-                (points[:, 1] >= ymin) & 
-                (points[:, 1] <= ymax)
-            ) # Mask points that are inside of polygons bbox
+        polygon_mask = (
+            (points[:, 0] >= xmin) & 
+            (points[:, 0] <= xmax) & 
+            (points[:, 1] >= ymin) & 
+            (points[:, 1] <= ymax)
+        ) # Mask points that are inside of polygons bbox
 
-            filtered_points = points[polygon_mask] # Select points that area inside polygon
+        filtered_points = points[polygon_mask] # Select points that area inside polygon
 
-            num_cores = 32
-            chunks = np.array_split(filtered_points, num_cores)
+        num_cores = 32
+        chunks = np.array_split(filtered_points, num_cores)
 
-            with Pool(num_cores) as pool: # Select points using multiprocessing
-                results = pool.map(check_points, [(chunk, polygon) for chunk in chunks])
+        with Pool(num_cores) as pool: # Select points using multiprocessing
+            results = pool.map(check_points, [(chunk, polygon) for chunk in chunks])
 
-            inside_polygon = np.concatenate(results) # Combine all results
+        inside_polygon = np.concatenate(results) # Combine all results
 
-            if inside_polygon.any(): # If the masking result is not empty
-                final_indices = np.where(polygon_mask)[0][inside_polygon] # Clip and go back to initial array size
+        if inside_polygon.any(): # If the masking result is not empty
+            final_indices = np.where(polygon_mask)[0][inside_polygon] # Clip and go back to initial array size
 
-                clipped_scan = laspy.LasData(scan.header) # Create a las entity for clipped points
-                clipped_scan.points = scan.points[final_indices].copy() # Insert the points into las
+            clipped_scan = laspy.LasData(scan.header) # Create a las entity for clipped points
+            clipped_scan.points = scan.points[final_indices].copy() # Insert the points into las
 
-                ground_only = clipped_scan.classification == 2 # Take only the ground and create a new entity
-                ground = laspy.LasData(scan.header)
-                ground.points = clipped_scan.points[np.array(ground_only)]
+            ground_only = clipped_scan.classification == 2 # Take only the ground and create a new entity
+            ground = laspy.LasData(scan.header)
+            ground.points = clipped_scan.points[np.array(ground_only)]
 
 
-                number = int(cols["area"])
-                area = f"{number}_{random.randint(1, 10000)}"
+            number = int(cols["area"])
+            area = f"{number}_{random.randint(1, 10000)}"
 
-                buf = BytesIO() # Save the file in memory
-                ground.write(buf)
-                buf.seek(0)
-                clipped_scans[f"{area}"] = buf
-                #ground.write(temp_folder + "/" + str(name) + str(fid) + "_" + str(area) + "_" + ".las")
-            else:
-                print("fail")
-    else:
-        END = True
+            buf = BytesIO() # Save the file in memory
+            ground.write(buf)
+            buf.seek(0)
+            clipped_scans[f"{area}"] = buf
+            #temp_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\FIXING\temp1"
+            #ground.write(temp_folder + "/" + str(area) + "_" + ".las")
+        else:
+            print("fail")
 
 def load_data(scan_path): # Read LAS and create PyVista object
     las = laspy.read(scan_path) # Import laser scan
@@ -113,11 +110,25 @@ def load_data(scan_path): # Read LAS and create PyVista object
     if hasattr(las, "red") and hasattr(las, "green") and hasattr(las, "blue"):
         colors = np.column_stack((las.red, las.green, las.blue))
         point_cloud.point_data["RGB"] = colors
-    
+       
     return point_cloud
 
 def sample_points_on_mesh(point_cloud, n_points): # Triangulate and sample points on the mesh
-    mesh = point_cloud.delaunay_2d() #Triangulate scan. Its mostly ground so 2D is acceptable
+
+    if int(point_cloud.n_points) > 120000:
+        print("CLOUD TO LARGE")
+        n_total = point_cloud.n_points
+        n_sample = int(n_total * 0.1)
+        sampled_indices = np.random.choice(n_total, size = n_sample, replace = False)
+
+        new_pc = pv.PolyData(point_cloud.points[sampled_indices])
+
+        for name in point_cloud.point_data:
+            new_pc[name] = point_cloud.point_data[name][sampled_indices]
+                
+        mesh = new_pc.delaunay_2d() #Triangulate scan. Its mostly ground so 2D is acceptable
+    else:
+        mesh = point_cloud.delaunay_2d() #Triangulate scan. Its mostly ground so 2D is acceptable
 
     # Extract triangle connectivity.
     # In PyVista, faces are stored in a flat array: [3, i0, i1, i2, 3, j0, j1, j2, ...]
@@ -187,7 +198,7 @@ def convert(sampled_pts, sampled_cols, temp_name, temp_dir):
         las_sampled.blue = sampled_cols[:, 2]
         las_sampled.classification[:] = 2
 
-    #temp_dir = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\temp"
+    #temp_dir = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\FIXING\temp2"
     try:
         file_path = os.path.join(temp_dir, f"{temp_name}.las")
         las_sampled.write(file_path)
@@ -208,41 +219,51 @@ if __name__ == "__main__":
         las_path = os.path.join(las_folder, scan)
         process_scans(las_path, scan) # Clip scans
 
-        if not END:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                las_files = []
-                las_files.append(las_path)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            las_files = []
+            las_files.append(las_path)
 
-                for key, value in clipped_scans.items(): # For each clipped scan in dict
-                    las = load_data(value)
+            for key, value in clipped_scans.items(): # For each clipped scan in dict
+                las = load_data(value)
 
-                    key_area = key.split("_")[0]
-                    poly_area = int(key_area)
-                    n_sample = poly_area * 100 # Sampled points based on area
-                    sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
+                key_area = key.split("_")[0]
+                poly_area = int(key_area)
+                n_sample = poly_area * 100 # Sampled points based on area
+                sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
 
-                    file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
-                    las_files.append(file_path)
-                try: 
-                    if len(las_files) > 120:
-                        temp_scan = scan.split(".")[0] + "temp." + scan.split(".")[1]
-                        file = os.path.join(out_folder, temp_scan)
-                        las_files.append(file)
+                file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
+                las_files.append(file_path)
 
-                        chunks = np.array_split(las_files, 2)
-            
-                        chunk1 = chunks[0]
-                        chunk2 = chunks[1]
+                MAX_FILES = 120
+            try: 
+                if len(las_files) > MAX_FILES:
+                    temp_scan = scan.split(".")[0] + "temp." + scan.split(".")[1]
+                    temp_path = os.path.join(out_folder, temp_scan)
+                    las_files.append(temp_path)
 
-                        cmd = 'las2las -i ' + ' '.join(chunk1) + f' -merged -o {out_folder + "/" + temp_scan}' # Merge them together
+                    chunks = [las_files[i:i + MAX_FILES] for i in range(0, len(las_files), MAX_FILES)]
+                    intermediate_outputs = []
+
+                    for i, chunk in enumerate(chunks[:-1]): #all except last chunk
+                        out_temp = os.path.join(out_folder, f"chunk_{i}.las")
+                        intermediate_outputs.append(out_temp)
+
+                        cmd = 'las2las -i ' + ' '.join(chunk) + f' -merged -target_epsg 2180 -o "{out_temp}"'
                         os.system(cmd)
 
-                        cmd = 'las2las -i ' + ' '.join(chunk2) + f' -merged -o {out_folder + "/" + scan}' # Merge them together
-                        os.system(cmd)
+                    final_chunk = chunks[-1] + intermediate_outputs
+                    cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in final_chunk) + f' -merged -target_epsg 2180 -o "{os.path.join(out_folder, scan)}"'
+                    os.system(cmd)
 
-                        os.remove(file)
-                    else:
-                        cmd = 'las2las -i ' + ' '.join(las_files) + f' -merged -o {out_folder + "/" + scan}' # Merge them together
-                        os.system(cmd)
-                except:
-                    pass
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                    for f in intermediate_outputs:
+                        if os.path.exists(f):
+                            os.remove(f)
+
+                else:
+                    cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in las_files) + f' -merged -target_epsg 2180 -o "{os.path.join(out_folder, scan)}"'
+                    os.system(cmd)
+                
+            except:
+                print("FAILED_TO_SAVE")

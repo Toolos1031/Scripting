@@ -92,7 +92,7 @@ def main():
             accuracy = Metashape.Vector((1, 1, 1))
             chunk.camera_rotation_accuracy = accuracy
         except:
-            raise Exception(f"Failed to load data for chunk: {name}")
+            pass
 
     doc.save()
 
