@@ -11,7 +11,7 @@ import tempfile
 import random
 
 ### SETUP
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\FIXING"
+root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 out_folder = os.path.join(root_folder, "out")
@@ -118,7 +118,7 @@ def sample_points_on_mesh(point_cloud, n_points): # Triangulate and sample point
     if int(point_cloud.n_points) > 120000:
         print("CLOUD TO LARGE")
         n_total = point_cloud.n_points
-        n_sample = int(n_total * 0.1)
+        n_sample = int(50000)
         sampled_indices = np.random.choice(n_total, size = n_sample, replace = False)
 
         new_pc = pv.PolyData(point_cloud.points[sampled_indices])
