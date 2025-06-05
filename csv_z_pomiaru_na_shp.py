@@ -13,7 +13,7 @@ for file in csv_files:
     file_path = os.path.join(root_folder, file)
 
     columns = ["id", "kod", "y", "x", "h", "time", "fix"]
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path, header = None)
 
     df.columns = columns
     
