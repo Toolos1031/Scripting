@@ -51,7 +51,7 @@ def process_scans(x, y):
     return sampled_indices
 
 def main_work(scan):
-    scan_file = os.path.join(root_folder, scan)
+    scan_file = os.path.join(las_folder, scan)
     las = laspy.read(scan_file)
 
     ground_only = las.classification == 2 # Take only the ground and create a new entity
@@ -90,10 +90,7 @@ def main_work(scan):
 
 if __name__ == "__main__":
     check_root()
-    las_files = [f for f in os.listdir(root_folder) if f.endswith(".las")]
+    las_files = [f for f in os.listdir(las_folder) if f.endswith(".las")]
 
     for scan in tqdm(las_files, total = len(las_files), desc = "Iterating over files"):
-        try:
-            main_work(scan)
-        except:
-            pass
+        main_work(scan)
