@@ -88,7 +88,7 @@ def main_work(scan):
     out_file = os.path.join(sample_folder, scan)
     new_las.write(out_file)
 
-if __name__ == "__name__":
+if __name__ == "__main__":
     check_root()
     las_files = [f for f in os.listdir(root_folder) if f.endswith(".las")]
 
