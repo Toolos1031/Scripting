@@ -1,12 +1,11 @@
 from osgeo import gdal
 import os
 from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import geopandas as gpd
 from shapely.geometry import box
 import tempfile
 from collections import defaultdict
-import subprocess
 import shutil
 
 gdal.TermProgress = gdal.TermProgress_nocb
@@ -20,8 +19,6 @@ shapefile = os.path.join(root_folder, "PL1992_5000_1.shp")
 
 tif_files = [f for f in os.listdir(tif_folder) if f.endswith(".tif")]
 folder_list = [tif_folder, out_folder, joined_folder]
-
-os.environ["GDAL_NUM_THREADS"] = "ALL_CPUS"
 
 def check_root():
     if os.path.isdir(root_folder):
@@ -86,26 +83,22 @@ def process_raster(tif):
             warp = None
 
 def merge_group(godlo, file_list, output_path):
+    print(f"merging {godlo}")
     if len(file_list) == 1:
         shutil.copyfile(file_list[0], output_path)
 
     elif len(file_list) > 1:
-        vrt_path = output_path.replace(".tif", ".vrt")
-
-        vrt_cmd = ["gdalbuildvrt", "-q", "-overwrite", vrt_path] + file_list
-        subprocess.run(vrt_cmd)
-
-        translate_cmd = [
-            "gdal_translate",
-            "-of", "GTiff",
-            "-co", "COMPRESS=DEFLATE",
-            "-co", "TILED=YES",
-            "-co", "BIGTIFF=YES",
-            vrt_path,
-            output_path
-        ]
-
-        subprocess.run(translate_cmd, shell = True)
+        warp_options = gdal.WarpOptions(
+            format = "GTiff",
+            multithread = True,
+            creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES"],
+            warpOptions = ["NUM_THREADS=5"],
+            dstSRS = "EPSG:2180",
+            callback = gdal.TermProgress
+        )
+    
+        warp = gdal.Warp(output_path, file_list, options = warp_options)
+        warp = None
 
 def merge_tiffs():
     shape = gpd.read_file(shapefile)
@@ -117,17 +110,16 @@ def merge_tiffs():
             if godlo in file:
                 godlo_to_files[godlo].append(os.path.join(out_folder, file))
 
-    tasks = []
-    for _, row in shape.iterrows():
-        godlo = row["godlo"]
-        out_path = os.path.join(joined_folder, f"{godlo}.tif")
-        tif_list = godlo_to_files.get(godlo, [])
-        tasks.append((godlo, tif_list, out_path))
+    with ProcessPoolExecutor(max_workers = 15) as executor:
+        futures = []
+        
+        for _, row in shape.iterrows():
+            godlo = row["godlo"]
+            out_path = os.path.join(joined_folder, f"{godlo}.tif")
+            futures.append(executor.submit(merge_group, godlo, godlo_to_files.get(godlo, []), out_path))
 
-    with ProcessPoolExecutor(max_workers = 8) as executor:
-        futures = [executor.submit(merge_group, godlo, tifs, out_path) for godlo, tifs, out_path in tasks]
-        for _ in tqdm(futures, total = len(futures), desc = "Merging TIFF groups"):
-            _.result()
+        for f in tqdm(futures, desc = "Merging"):
+            f.result()
 
 def main():
     check_root()

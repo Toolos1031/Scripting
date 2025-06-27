@@ -101,9 +101,10 @@ def main():
 
         proj = Metashape.OrthoProjection()
         proj.crs = Metashape.CoordinateSystem("EPSG::2180")
+
         try:
             chunk.matchPhotos(downscale = 1, keypoint_limit = 40000, tiepoint_limit = 10000, generic_preselection = True, reference_preselection = True)
-            doc.save()
+            doc.save() 
             chunk.alignCameras()
             doc.save()
             chunk.buildDem(source_data = Metashape.PointCloudData, projection = proj)
@@ -121,8 +122,21 @@ def main():
                                 projection = proj, 
                                 image_compression = compression)
             doc.save()
+            chunk.buildDem(source_data = Metashape.PointCloudData, classes = [2], projection = proj, replace_asset = True)
+            doc.save()
+            if chunk.elevation:
+                compression = Metashape.ImageCompression()
+                compression.tiff_tiled = False
+                compression.tiff_overviews = False
+                compression.tiff_compression = Metashape.ImageCompression.TiffCompressionLZW
+                compression.tiff_big = True
+                chunk.exportRaster(path = outFolder + "/" + name.split("'")[1] + ".tif",
+                                   source_data = Metashape.ElevationData,
+                                   projection = proj,
+                                   image_compression = compression)
+            doc.save()
         except:
-            continue
+            print("FAIIILEEEDDDD")
 
 
 label = "Scripts/Ortho from Las"
