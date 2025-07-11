@@ -3,14 +3,14 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 import os
+from concurrent.futures import ProcessPoolExecutor
 
-root_folder = r"D:\___WodyPolskie\3_Milicz\przetwarzanie"
+root_folder = r"D:\___WodyPolskie\Gora\laczenie\1"
 
-las_folder = os.path.join(root_folder, "las")
+las_folder = os.path.join(root_folder, "single")
 sample_folder = os.path.join(root_folder, "sampled")
 
 folder_list = [las_folder, sample_folder]
-
 
 def check_root():
     if os.path.isdir(root_folder): # Check if the root path, and other dirs exits
@@ -51,6 +51,7 @@ def process_scans(x, y):
     return sampled_indices
 
 def main_work(scan):
+    print(f"Sampling: {scan}")
     scan_file = os.path.join(las_folder, scan)
     las = laspy.read(scan_file)
 
@@ -92,5 +93,14 @@ if __name__ == "__main__":
     check_root()
     las_files = [f for f in os.listdir(las_folder) if f.endswith(".las")]
 
-    for scan in tqdm(las_files, total = len(las_files), desc = "Iterating over files"):
-        main_work(scan)
+    with ProcessPoolExecutor(max_workers = 5) as executor:
+        futures = []
+
+        for scan in las_files:
+            futures.append(executor.submit(main_work, scan))
+
+        for f in tqdm(futures, desc = "Sampling"):
+            f.result()
+
+    #for scan in tqdm(las_files, total = len(las_files), desc = "Iterating over files"):
+    #    main_work(scan)

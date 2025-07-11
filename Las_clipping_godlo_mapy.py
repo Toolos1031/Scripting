@@ -9,12 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 import subprocess
 from collections import defaultdict
 
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\Gotowe\__Przycinanie_godlo"
+root_folder = r"D:\___WodyPolskie\Gora\laczenie"
 
 scan_folder = os.path.join(root_folder, "las")
-out_folder = os.path.join(root_folder, "out")
+out_folder = os.path.join(root_folder, "clipped_godlo")
 joined_folder = os.path.join(root_folder, "joined")
-shapefile = os.path.join(root_folder, "PL1992_5000.shp")
+shapefile = os.path.join(root_folder, "PL1992_5000_1.shp")
 
 folder_list = [out_folder, joined_folder]
 las_files = [os.path.join(scan_folder, f) for f in os.listdir(scan_folder) if f.endswith(".las")]
@@ -158,7 +158,7 @@ def merge_clouds():
             if godlo in file:
                 godlo_to_files[godlo].append(os.path.join(out_folder, file))
     
-    with ThreadPoolExecutor(max_workers = 4) as executor:
+    with ThreadPoolExecutor(max_workers = 10) as executor:
         for _, row in shape.iterrows():
             godlo = row["godlo"]
             out_path = os.path.join(joined_folder, godlo + ".las")
@@ -167,8 +167,9 @@ def merge_clouds():
 def main():
     check_root()
 
-    for scan in tqdm(las_files, desc = "Clipping", total = len(las_files)):
-        process_scans(scan)
+    with ThreadPoolExecutor(max_workers = 5) as executor:
+        for scan in las_files:
+            executor.submit(process_scans, scan)
 
     merge_clouds()
 
