@@ -73,24 +73,26 @@ def main():
 
     doc = Metashape.app.document
     doc.remove(doc.chunk)
-
+    
     for scan in laser_scans:
         chunkname = scan.split(".")[0]
         doc.addChunk()
         chunks = doc.chunks
         chunks[-1].label = chunkname
-
+    
     doc.save(outFolder + "/project.psx")
 
     for chunk in doc.chunks:
         name = str(chunk)
         photos = [photoFolder + "/" + name.split("'")[1] + "/" + photo for photo in os.listdir(photoFolder + "/" + name.split("'")[1] + "/") if photo.endswith(".JPG")]
         try:
-            las_path = lasFolder + "/" + name.split("'")[1] + ".las"
-            chunk.importPointCloud(las_path, is_laser_scan = False)
-            chunk.addPhotos(photos, load_reference = True, load_xmp_accuracy = True, load_xmp_orientation = True, load_xmp_antenna = True, load_xmp_calibration = True)
-            accuracy = Metashape.Vector((1, 1, 1))
-            chunk.camera_rotation_accuracy = accuracy
+            if not chunk.point_cloud:
+                las_path = lasFolder + "/" + name.split("'")[1] + ".las"
+                print(f"\n\n\n IMPORTING POINT CLOUD FOR {chunk} \n\n\n")
+                chunk.importPointCloud(las_path, is_laser_scan = False)
+                chunk.addPhotos(photos, load_reference = True, load_xmp_accuracy = True, load_xmp_orientation = True, load_xmp_antenna = True, load_xmp_calibration = True)
+                accuracy = Metashape.Vector((1, 1, 1))
+                chunk.camera_rotation_accuracy = accuracy
         except:
             pass
 

@@ -1,7 +1,7 @@
 from osgeo import gdal
 import os
 from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import geopandas as gpd
 from shapely.geometry import box
 import tempfile
@@ -10,10 +10,10 @@ import shutil
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\Gotowe\__Przycinanie_godlo"
+root_folder = r"D:\1111Przetwarzanie\JOINING_TIF\naprawa"
 
-tif_folder = os.path.join(root_folder, "tif")
-out_folder = os.path.join(root_folder, "out_tif")
+tif_folder = os.path.join(root_folder, "ortho")
+out_folder = os.path.join(root_folder, "clipped_godlo_tif")
 joined_folder = os.path.join(root_folder, "joined_tif")
 shapefile = os.path.join(root_folder, "PL1992_5000_1.shp")
 
@@ -118,16 +118,16 @@ def merge_tiffs():
             out_path = os.path.join(joined_folder, f"{godlo}.tif")
             futures.append(executor.submit(merge_group, godlo, godlo_to_files.get(godlo, []), out_path))
 
-        for f in tqdm(futures, desc = "Merging"):
+        for f in tqdm(as_completed(futures), total = len(futures), desc = "Merging"):
             f.result()
 
 def main():
     check_root()
 
-    #with ProcessPoolExecutor(max_workers = 15) as executor:
-        #list(tqdm(executor.map(process_raster, tif_files), total = len(tif_files), desc = "Clipping"))
+    with ProcessPoolExecutor(max_workers = 15) as executor:
+        list(tqdm(executor.map(process_raster, tif_files), total = len(tif_files), desc = "Clipping"))
     
-    merge_tiffs()
+    #merge_tiffs()
 
 if __name__ == "__main__":
     main()

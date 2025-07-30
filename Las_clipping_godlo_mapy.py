@@ -9,9 +9,9 @@ from concurrent.futures import ThreadPoolExecutor
 import subprocess
 from collections import defaultdict
 
-root_folder = r"D:\___WodyPolskie\Gora\laczenie"
+root_folder = r"D:\1111Przetwarzanie"
 
-scan_folder = os.path.join(root_folder, "las")
+scan_folder = os.path.join(root_folder, "filled")
 out_folder = os.path.join(root_folder, "clipped_godlo")
 joined_folder = os.path.join(root_folder, "joined")
 shapefile = os.path.join(root_folder, "PL1992_5000_1.shp")
@@ -82,7 +82,6 @@ def process_scans(scan_file): #main function
             (points[:, 1] >= ymin) & 
             (points[:, 1] <= ymax)
         )
-
         filtered_points = points[polygon_mask]
 
         #Buffer whose bbox will fit inside the poly
@@ -105,7 +104,7 @@ def process_scans(scan_file): #main function
         border_indices = np.where(polygon_mask)[0][~inner_bbox_mask]
 
         #split into chunks for multiprocessing
-        num_cores = 16
+        num_cores = 5
         chunks = np.array_split(border_points, num_cores)
         index_chunks = np.array_split(border_indices, num_cores)
 
@@ -139,8 +138,10 @@ def process_scans(scan_file): #main function
             clipped_scan.write(new_filename)
 
         else: #it means that the scan is completely in the inner polygon not the border
-            new_filename = os.path.join(out_folder, str(scan_file.split("\\")[-1].split(".")[0] + "^" + cols["godlo"] + ".las"))
-            las.write(new_filename)
+            if filtered_points.any():
+                if inner_indices.any():
+                    new_filename = os.path.join(out_folder, str(scan_file.split("\\")[-1].split(".")[0] + "^" + cols["godlo"] + ".las"))
+                    las.write(new_filename)
 
 def merge_files(godlo, file_list, output_path):
     if file_list:
@@ -157,7 +158,7 @@ def merge_clouds():
         for godlo in shape["godlo"]:
             if godlo in file:
                 godlo_to_files[godlo].append(os.path.join(out_folder, file))
-    
+
     with ThreadPoolExecutor(max_workers = 10) as executor:
         for _, row in shape.iterrows():
             godlo = row["godlo"]
@@ -167,7 +168,7 @@ def merge_clouds():
 def main():
     check_root()
 
-    with ThreadPoolExecutor(max_workers = 5) as executor:
+    with ThreadPoolExecutor(max_workers = 10) as executor:
         for scan in las_files:
             executor.submit(process_scans, scan)
 

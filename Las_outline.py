@@ -6,7 +6,7 @@ import os
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\Gotowe\__Przycinanie_godlo\joined"
+root_folder = r"D:\1111Przetwarzanie\JOINING\sampled"
 las_files = [os.path.join(root_folder, f) for f in os.listdir(root_folder) if f.endswith(".las")]
 
 """
@@ -19,7 +19,8 @@ for dirpath, dirnames, filenames in os.walk(root_folder):
 """
 def process_scan(scan):
     file = os.path.split(scan)[1]
-    out_folder = os.path.join(root_folder, "outline")
+    print(f"sampling {file}")
+    out_folder = os.path.join(root_folder, "outline_new")
 
     las = laspy.read(scan)
     points = np.vstack((las.x, las.y)).T
@@ -43,9 +44,8 @@ def process_scan(scan):
     except:
         print(f"skipped {file_shp}")
 
-
 def main():
-    with ProcessPoolExecutor(max_workers = 10) as executor:
+    with ProcessPoolExecutor(max_workers = 15) as executor:
         executor.map(process_scan, las_files)
 
 if __name__ == "__main__":
