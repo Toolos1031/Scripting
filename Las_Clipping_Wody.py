@@ -5,12 +5,13 @@ import numpy as np
 import os
 from tqdm import tqdm
 from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ### SETUP
 
-poly_path = r"D:\WODY_testy\clipping\profiles.shp"
-scan_folder = r"D:\WODY_testy\clipping"
-out_folder = r"D:\WODY_testy\clipping\out"
+poly_path = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\braki_buffered.gpkg"
+scan_folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\pobrane"
+out_folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\clipped"
 
 
 # Function for calculating the extent of a laserscan
@@ -41,6 +42,7 @@ def process_scan(scan_file, shapefile, out_folder):
     points = np.vstack((scan.x, scan.y)).T # Prepare data for shapely
 
     intersecting_polygons = shapefile[shapefile.geometry.intersects(bbox(scan))] # Use only polygons that are intersecting the laser scan
+    #intersecting_polygons = shapefile[shapefile['layer'] == scan_file.split("\\")[-1].split(".")[0]]
 
     for rows, cols in tqdm(intersecting_polygons.iterrows(), total = len(intersecting_polygons)): # Iterate over selected polygons
     
@@ -56,7 +58,7 @@ def process_scan(scan_file, shapefile, out_folder):
 
         filtered_points = points[polygon_mask] # Select points in polygons bounding box
 
-        num_cores = 2
+        num_cores = 5
         chunks = np.array_split(filtered_points, num_cores)
 
         with Pool(num_cores) as pool: # Run pools
@@ -71,15 +73,24 @@ def process_scan(scan_file, shapefile, out_folder):
             clipped_scan = laspy.LasData(scan.header)
             clipped_scan.points = scan.points[final_indices].copy()
 
-            new_filename = os.path.join(out_folder, f"{cols['id']}_{cols['distance']}.las")
-
+            new_filename = os.path.join(out_folder, scan_file.split("\\")[-1].split(".")[0] + "^" + cols["name"] + ".las")
+            #new_filename = os.path.join(out_folder, f"{cols['layer']}.las")
             clipped_scan.write(new_filename)
 
-if __name__ == "__main__":
+def main():
     shapefile = gpd.read_file(poly_path)
 
-    scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".las")]
-    for scan_file in scans:
-        process_scan(scan_file, shapefile, out_folder)
+    scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".laz")]
 
+    with ThreadPoolExecutor(max_workers = 20) as executor:
+        futures = []
+
+        for scan in scans:
+            futures.append(executor.submit(process_scan, scan, shapefile, out_folder))
+
+        for f in tqdm(as_completed(futures), total = len(scans), desc = "Cipping"):
+            f.result()
+
+if __name__ == "__main__":
+    main()
 

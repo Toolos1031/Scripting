@@ -1,141 +1,55 @@
-from osgeo import gdal
+import pandas as pd
 import os
-from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor
-import geopandas as gpd
-from shapely.geometry import box
-import tempfile
-from collections import defaultdict
-import subprocess
-import shutil
 
-gdal.TermProgress = gdal.TermProgress_nocb
+clip_folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\clipped"
+csv_path = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\merged.csv"
+out_path = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\for_agi.csv"
 
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie\Gotowe\__Przycinanie_godlo"
+clipped_files = [os.path.join(clip_folder, f) for f in os.listdir(clip_folder) if f.endswith(".las")]
 
-tif_folder = os.path.join(root_folder, "tif")
-out_folder = os.path.join(root_folder, "out_tif")
-joined_folder = os.path.join(root_folder, "joined_tif")
-shapefile = os.path.join(root_folder, "PL1992_5000_1.shp")
+df = pd.read_csv(csv_path, sep = ";", encoding = "cp1250")
+df["files_paths"] = ""
 
-tif_files = [f for f in os.listdir(tif_folder) if f.endswith(".tif")]
-folder_list = [tif_folder, out_folder, joined_folder]
+#print(df.head())
 
-os.environ["GDAL_NUM_THREADS"] = "ALL_CPUS"
+a = df["braki_name"][1].split(",")
+#print(a)
 
-def check_root():
-    if os.path.isdir(root_folder):
-        for folder in folder_list:
-            name = folder.split("\\")[-1]
-            if not os.path.isdir(folder):
-                os.mkdir(folder)
-                print(f"Created folder for {name}")
+
+
+files_df = pd.DataFrame({"braki_paths" : clipped_files, "short_name" : ""})
+
+for rows, cols in files_df.iterrows():
+    short_name = cols["braki_paths"].split("^")[1].split(".")[0]
+    cols["short_name"] = short_name
+
+files_2 = (
+    files_df.groupby("short_name")["braki_paths"]
+    .apply(lambda x: ",".join(map(str, sorted(x))))
+    .reset_index()
+)
+
+#print(files_2.head())
+
+
+for rows, cols in df.iterrows():
+    print(rows)
+    braki = cols["braki_name"].split(",")
+    files = []
+    if len(braki) == 1:
+        brak = braki[0]
+        for rows2, cols2, in files_2.iterrows():
+            if int(cols2["short_name"]) == int(brak):
+                files.append(cols2["braki_paths"])
     else:
-        input("Root folder does not exist, PRESS ENTER TO EXIT")
-        raise SystemExit(0)
-    
-    if not os.path.isfile(shapefile):
-        input("Shapefile not found, PRESS ENTER TO EXIT")
-        raise SystemExit(0)
+        for brak in braki:
+            for rows2, cols2, in files_2.iterrows():
+                if int(cols2["short_name"]) == int(brak):
+                    files.append(cols2["braki_paths"])
+    joined = ",".join(map(str, files))
+    #df["files_paths"][rows] = str(joined)
+    df.loc[rows, "files_pahts"] = str(joined)
 
-    if not tif_files:
-        input("No .tif files in directory, PRESS ENTER TO EXIT")
-        raise SystemExit(0)
+print(df.head())
 
-#for tiff in tqdm(tiff_files, total = len(tiff_files)):
-def process_raster(tif):
-    shape = gpd.read_file(shapefile)
-    tif_path = os.path.join(tif_folder, tif)
-    
-    ds = gdal.Open(tif_path)
-    gt = ds.GetGeoTransform()
-    cols = ds.RasterXSize
-    rows = ds.RasterYSize
-    bbox = box(gt[0], gt[3] + rows * gt[5], gt[0] + cols * gt[1], gt[3])
-
-    intersecting_polygons = shape[shape.intersects(bbox)]
-
-    for rows, cols in intersecting_polygons.iterrows():
-        single_shape = gpd.GeoDataFrame([cols], crs = "EPSG:2180")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            temp_vector = os.path.join(tmpdir, "cutline.geojson")
-            single_shape.to_file(temp_vector, driver = "GeoJSON")
-
-            clip_name = cols["godlo"]
-            out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + clip_name + ".tif")
-
-            overview = gdal.Open(tif_path, 1)
-            if overview.GetRasterBand(1).GetOverviewCount() == 0:
-                gdal.SetConfigOption("COMPRESS_OVERVIEW", "LZW")
-                overview.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64], gdal.TermProgress)
-            del overview
-
-            warp_options = gdal.WarpOptions(
-                format = "GTiff",
-                cutlineDSName = temp_vector,
-                multithread = True,
-                creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES"],
-                warpOptions = ["NUM_THREADS=2"],
-                dstSRS = "EPSG:2180",
-                cropToCutline = True,
-                callback = gdal.TermProgress
-            )
-
-            warp = gdal.Warp(out_path, tif_path, options = warp_options)
-            warp = None
-
-def merge_group(godlo, file_list, output_path):
-    if len(file_list) == 1:
-        shutil.copyfile(file_list[0], output_path)
-
-    elif len(file_list) > 1:
-        vrt_path = output_path.replace(".tif", ".vrt")
-
-        vrt_cmd = ["gdalbuildvrt", "-q", "-overwrite", vrt_path] + file_list
-        subprocess.run(vrt_cmd)
-
-        translate_cmd = [
-            "gdal_translate",
-            "-of", "GTiff",
-            "-co", "COMPRESS=DEFLATE",
-            "-co", "TILED=YES",
-            "-co", "BIGTIFF=YES",
-            vrt_path,
-            output_path
-        ]
-
-        subprocess.run(translate_cmd, shell = True)
-
-def merge_tiffs():
-    shape = gpd.read_file(shapefile)
-    all_files = [f for f in os.listdir(out_folder) if f.endswith(".tif")]
-    godlo_to_files = defaultdict(list)
-
-    for file in all_files:
-        for godlo in shape["godlo"]:
-            if godlo in file:
-                godlo_to_files[godlo].append(os.path.join(out_folder, file))
-
-    tasks = []
-    for _, row in shape.iterrows():
-        godlo = row["godlo"]
-        out_path = os.path.join(joined_folder, f"{godlo}.tif")
-        tif_list = godlo_to_files.get(godlo, [])
-        tasks.append((godlo, tif_list, out_path))
-
-    with ProcessPoolExecutor(max_workers = 8) as executor:
-        futures = [executor.submit(merge_group, godlo, tifs, out_path) for godlo, tifs, out_path in tasks]
-        for _ in tqdm(futures, total = len(futures), desc = "Merging TIFF groups"):
-            _.result()
-
-def main():
-    check_root()
-
-    #with ProcessPoolExecutor(max_workers = 15) as executor:
-        #list(tqdm(executor.map(process_raster, tif_files), total = len(tif_files), desc = "Clipping"))
-    
-    merge_tiffs()
-
-if __name__ == "__main__":
-    main()
+df.to_csv(out_path, sep = ";", encoding = "cp1250")

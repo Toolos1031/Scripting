@@ -3,7 +3,7 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 import os
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from rasterio.transform import from_origin
 import rasterio
 from osgeo import gdal, ogr, osr
@@ -31,7 +31,7 @@ logging.basicConfig(
 
 #Root folders dirs
 root_folder = r"D:\1111Przetwarzanie"
-source_folder = r"C:\__Wody_Polskie\las"
+source_folder = r"D:\1111Przetwarzanie\las"
 
 #Output folders dirs
 sampled_folder = os.path.join(root_folder, "sampled_pre_processed")
@@ -190,7 +190,8 @@ def detect_low_density(scan):
     density_raster = np.flipud(density.T) 
 
     # Get only values that are within the scan (>0) and lower than our goal (<50) and make it binary
-    binary_raster = np.where((density_raster > 0) & (density_raster < 50), 1, 0) 
+    binary_raster = np.where((density_raster > 0) & (density_raster < 50), 1, 0)
+    binary_raster = binary_raster.astype("uint8")
 
     # Transform it back to original location
     transform = from_origin(xmin, ymax, cell_size, cell_size) 
@@ -329,6 +330,21 @@ def process_raster(tif):
         poly_path = os.path.join(poly_folder, tif.split(".")[0] + ".shp")
         polys.to_file(poly_path)
 
+# Run rasterization and poly processing in this pipeline, to enable multithreading
+
+def low_density_workflow(sampled):
+    tif = sampled.split(".")[0] + ".tif"
+    try:
+        detect_low_density(sampled)
+    except Exception as e:
+        logging.error(f"Failed to execute low density detection for {sampled}: {e}")
+
+    try:
+        process_raster(tif)
+    except Exception as e:
+        print(e)
+        logging.error(f"Failed to execute tif processing for {tif}: {e}")
+
 # Check if points are inside of the polygon. Function needed for multiprocessing
 def check_points(args):
     chunk, polygon = args
@@ -377,7 +393,7 @@ def process_scans(scan_path, name, clipped_scans):
         # Select points that area inside polygon
         filtered_points = points[polygon_mask] 
 
-        num_cores = 32
+        num_cores = 5
         chunks = np.array_split(filtered_points, num_cores)
 
         # Select points using multiprocessing
@@ -426,7 +442,6 @@ def load_data(scan_path):
 def sample_points_on_mesh(point_cloud, n_points): # Triangulate and sample points on the mesh
 
     if int(point_cloud.n_points) > 120000:
-        print("CLOUD TO LARGE")
         n_total = point_cloud.n_points
         n_sample = int(50000)
         sampled_indices = np.random.choice(n_total, size = n_sample, replace = False)
@@ -515,6 +530,87 @@ def convert(sampled_pts, sampled_cols, temp_name, temp_dir):
         pass
 
     return file_path
+
+def fill_gaps_for_sampled(sampled, sampled_folder, filled_folder):
+    try:
+        # Create a dict for clipped scans in memory
+        clipped_scans = {}
+        las_path = os.path.join(sampled_folder, sampled)
+
+        process_scans(las_path, sampled, clipped_scans)
+
+        # Process within a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            las_files = []
+            las_files.append(las_path)
+            
+            # For each clipped scan in dict
+            for key, value in clipped_scans.items():
+                try:
+                    # Load and return scan as a PyVista object
+                    las = load_data(value)
+
+                    key_area = key.split("_")[0]
+                    poly_area = int(key_area)
+                    n_sample = poly_area * 100 # Sampled points based on area
+                    sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
+
+                    # Convert back to laspy format
+                    file_path = convert(sampled_pts, sampled_cols, key, temp_dir)
+                    las_files.append(file_path)
+                except Exception as e:
+                    logging.error(f"Failed to sample or convert {value}: {e}")
+
+            # Flag to make sure that the command doenst exceed its character limit
+            MAX_FILES = 120
+
+            # Merge all parts together, If there are too many, split into parts
+            try: 
+                if len(las_files) > MAX_FILES:
+                    temp_scan = sampled.split(".")[0] + "temp." + sampled.split(".")[1]
+                    temp_path = os.path.join(filled_folder, temp_scan)
+                    las_files.append(temp_path)
+
+                    # Split command into chunks
+                    chunks = [las_files[i:i + MAX_FILES] for i in range(0, len(las_files), MAX_FILES)]
+                    intermediate_outputs = []
+
+                    # All except last chunk
+                    for i, chunk in enumerate(chunks[:-1]): 
+                        out_temp = os.path.join(filled_folder, f"chunk_{i}.las")
+                        intermediate_outputs.append(out_temp)
+
+                        #cmd = 'las2las -i ' + ' '.join(chunk) + f' -merged -target_epsg 2180 -o "{out_temp}"'
+                        #os.system(cmd)
+                        cmd = ['lasmerge', '-i'] + chunk + ["-o", out_temp]
+                        subprocess.run(cmd)
+
+                    # Add the last chunk
+                    final_chunk = chunks[-1] + intermediate_outputs
+                    #cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in final_chunk) + f' -merged -target_epsg 2180 -o "{os.path.join(filled_folder, scan)}"'
+                    #os.system(cmd)
+                    cmd = ['lasmerge', '-i'] + final_chunk + ["-o", os.path.join(filled_folder, sampled)]
+                    subprocess.run(cmd)
+
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                    for f in intermediate_outputs:
+                        if os.path.exists(f):
+                            os.remove(f)
+
+                else:
+                    #cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in las_files) + f' -merged -target_epsg 2180 -o "{os.path.join(filled_folder, scan)}"'
+                    #os.system(cmd)
+                    cmd = ['lasmerge', '-i'] + las_files + ["-o", os.path.join(filled_folder, sampled)]
+                    subprocess.run(cmd)
+                
+            except Exception as e:
+                logging.error(f"Failed to merge {sampled}: {e}")
+
+    except Exception as e:
+        logging.error(f"Failed to fill gaps for {sampled}: {e}")
+
+    return sampled
 
 # Bounding box of the scan
 def bbox(scan):
@@ -637,7 +733,7 @@ def merge_clouds():
 def main():
     # Check files before continuing
     check_root()
-
+    
     # Loop over all .las files in the source directory
     las_files = [f for f in os.listdir(source_folder) if f.endswith(".las")]
 
@@ -653,103 +749,35 @@ def main():
                 f.result()
             except Exception as e:
                 logging.error(f"Failed to execute scan subsampling {f}: {e}")
-
+    
     # On subsampled files, detect areas with low point density
     sampled_files = [f for f in os.listdir(sampled_folder) if f.endswith(".las")]
 
-    for sampled in tqdm(sampled_files, total = len(sampled_files), desc = "Detecting low density zones"):
-        tif = sampled.split(".")[0] + ".tif"
-        try:
-            detect_low_density(sampled)
-        except Exception as e:
-            logging.error(f"Failed to execute low density detection for {sampled}: {e}")
-        
-        try:
-            process_raster(tif)
-        except Exception as e:
-            logging.error(f"Failed to execute tif processing for {tif}: {e}")
+    with ProcessPoolExecutor(max_workers = 10) as executor:
+        futures = {executor.submit(low_density_workflow, sampled): sampled for sampled in sampled_files}
+
+        for future in tqdm(as_completed(futures), total = len(futures), desc = "Detecting low density zones"):
+            src = futures[future]
+            try:
+                _ = future.result()
+            except Exception as e:
+                logging.error(f"Worker crashed on executing low density {src.name}: {e}")
     
-    sampled_files = [f for f in os.listdir(sampled_folder) if f.endswith(".las")]
     # Fill gaps in the sampled scans using created polygons
-    for sampled in tqdm(sampled_files, total = len(sampled_files), desc = "Filling gaps in scans"):
-        try:
-            # Create a dict for clipped scans in memory
-            clipped_scans = {}
-            las_path = os.path.join(sampled_folder, sampled)
+    sampled_files = [f for f in os.listdir(sampled_folder) if f.endswith(".las")]
+    with ThreadPoolExecutor(max_workers = 10) as executor:
+        futures = {
+            executor.submit(fill_gaps_for_sampled, sampled, sampled_folder, filled_folder) : sampled for sampled in sampled_files
+        }
 
-            process_scans(las_path, sampled, clipped_scans)
+        for future in tqdm(as_completed(futures), total = len(futures), desc = "Filling gaps in scans"):
+            fname = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                logging.error(f"Worker crashed on executing gaps filling {fname}: {e}")
 
-            # Process within a temporary directory
-            with tempfile.TemporaryDirectory() as temp_dir:
-                las_files = []
-                las_files.append(las_path)
-                
-                # For each clipped scan in dict
-                for key, value in clipped_scans.items():
-                    try:
-                        # Load and return scan as a PyVista object
-                        las = load_data(value)
-
-                        key_area = key.split("_")[0]
-                        poly_area = int(key_area)
-                        n_sample = poly_area * 100 # Sampled points based on area
-                        sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
-
-                        # Convert back to laspy format
-                        file_path = convert(sampled_pts, sampled_cols, key, temp_dir)
-                        las_files.append(file_path)
-                    except Exception as e:
-                        logging.error(f"Failed to sample or convert {value}: {e}")
-
-                # Flag to make sure that the command doenst exceed its character limit
-                MAX_FILES = 120
-
-                # Merge all parts together, If there are too many, split into parts
-                try: 
-                    if len(las_files) > MAX_FILES:
-                        temp_scan = sampled.split(".")[0] + "temp." + sampled.split(".")[1]
-                        temp_path = os.path.join(filled_folder, temp_scan)
-                        las_files.append(temp_path)
-
-                        # Split command into chunks
-                        chunks = [las_files[i:i + MAX_FILES] for i in range(0, len(las_files), MAX_FILES)]
-                        intermediate_outputs = []
-
-                        # All except last chunk
-                        for i, chunk in enumerate(chunks[:-1]): 
-                            out_temp = os.path.join(filled_folder, f"chunk_{i}.las")
-                            intermediate_outputs.append(out_temp)
-
-                            #cmd = 'las2las -i ' + ' '.join(chunk) + f' -merged -target_epsg 2180 -o "{out_temp}"'
-                            #os.system(cmd)
-                            cmd = ['lasmerge', '-i'] + chunk + ["-o", out_temp]
-                            subprocess.run(cmd)
-
-                        # Add the last chunk
-                        final_chunk = chunks[-1] + intermediate_outputs
-                        #cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in final_chunk) + f' -merged -target_epsg 2180 -o "{os.path.join(filled_folder, scan)}"'
-                        #os.system(cmd)
-                        cmd = ['lasmerge', '-i'] + final_chunk + ["-o", os.path.join(filled_folder, sampled)]
-                        subprocess.run(cmd)
-
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
-                        for f in intermediate_outputs:
-                            if os.path.exists(f):
-                                os.remove(f)
-
-                    else:
-                        #cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in las_files) + f' -merged -target_epsg 2180 -o "{os.path.join(filled_folder, scan)}"'
-                        #os.system(cmd)
-                        cmd = ['lasmerge', '-i'] + las_files + ["-o", os.path.join(filled_folder, sampled)]
-                        subprocess.run(cmd)
-                    
-                except Exception as e:
-                    logging.error(f"Failed to merge {sampled}: {e}")
-
-        except Exception as e:
-            logging.error(f"Failed to fill gaps for {sampled}: {e}")
-
+    """
     # Clip filled scans with godlo
     filled_scans = [os.path.join(filled_folder, f) for f in os.listdir(filled_folder) if f.endswith(".las")]
 
@@ -762,6 +790,6 @@ def main():
         merge_clouds()
     except Exception as e:
         logging.error(f"Failed to make final merge: {e}")
-
+    """
 if __name__ == "__main__":
     main()

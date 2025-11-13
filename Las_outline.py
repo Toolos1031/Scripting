@@ -4,9 +4,9 @@ import alphashape
 import geopandas as gpd
 import os
 from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 
-root_folder = r"D:\1111Przetwarzanie\JOINING\sampled"
+root_folder = r"E:\Krotoszyn_Chmury"
 las_files = [os.path.join(root_folder, f) for f in os.listdir(root_folder) if f.endswith(".las")]
 
 """
@@ -20,7 +20,7 @@ for dirpath, dirnames, filenames in os.walk(root_folder):
 def process_scan(scan):
     file = os.path.split(scan)[1]
     print(f"sampling {file}")
-    out_folder = os.path.join(root_folder, "outline_new")
+    out_folder = os.path.join(root_folder, "outline")
 
     las = laspy.read(scan)
     points = np.vstack((las.x, las.y)).T
@@ -45,8 +45,15 @@ def process_scan(scan):
         print(f"skipped {file_shp}")
 
 def main():
-    with ProcessPoolExecutor(max_workers = 15) as executor:
-        executor.map(process_scan, las_files)
+    with ProcessPoolExecutor(max_workers = 10) as executor:
+        futures = {executor.submit(process_scan, scan): scan for scan in las_files}
+
+        for future in tqdm(as_completed(futures), total = len(futures), desc = "Calculating outline"):
+            fname = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Worker failed on outline for {fname}: {e}")
 
 if __name__ == "__main__":
     main()
