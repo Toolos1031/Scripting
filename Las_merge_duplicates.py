@@ -5,14 +5,15 @@ import laspy
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-root_folder = r"D:\1111Przetwarzanie\joined"
+root_folder = r"D:\1111Przetwarzanie\joined\leszno\nowe"
 #old_folder = os.path.join(root_folder, "old")
-old_folder = r"D:\1111Przetwarzanie\JOINING\sampled"
-merged_folder = os.path.join(root_folder, "merged")
+old_folder = r"D:\1111Przetwarzanie\joined\leszno\stare"
+#merged_folder = os.path.join(root_folder, "merged")
+merged_folder = r"D:\1111Przetwarzanie\joined\leszno\merged"
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
-files = [f for f in os.listdir(root_folder) if f.endswith(".las")]
+files = [f for f in os.listdir(root_folder) if f.endswith(".laz")]
 
 def merge_clouds(file, file_list, out):
 
@@ -31,6 +32,7 @@ def main():
 
             file_list.append(f1)
             file_list.append(f2)
+
 
             out = os.path.join(merged_folder, file)
             futures.append(executor.submit(merge_clouds, file, file_list, out))
