@@ -4,9 +4,9 @@ from tqdm import tqdm
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie"
+folder = r"D:\___WodyPolskie\clipping_rastry\Gora"
 
-shp = os.path.join(folder, "url.gpkg")
+shp = os.path.join(folder, "skorowidz_braki_gora.gpkg")
 
 out_folder = os.path.join(folder, "pobrane")
 
@@ -14,11 +14,11 @@ shapefile = gpd.read_file(shp)
 
 ulrs = []
 
-downloaded = [f for f in os.listdir(r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\pobrane")]
+downloaded = [f for f in os.listdir(r"D:\___WodyPolskie\clipping_rastry\Gora\pobrane")]
 print(downloaded)
 
 for rows, cols in shapefile.iterrows():
-    ulrs.append(cols["url"])
+    ulrs.append(cols["url_do_pobrania"])
 
 def download(url):
     filename = os.path.basename(url)
@@ -34,11 +34,11 @@ def download(url):
                     f.write(chunk)
 
         except Exception as e:
-            print(f"Failed to download {filename}")
+            print(f"Failed to download {filename} due to {e}")
 
 def main():
 
-    with ThreadPoolExecutor(max_workers = 60) as executor:
+    with ThreadPoolExecutor(max_workers = 20) as executor:
 
         futures = []
 

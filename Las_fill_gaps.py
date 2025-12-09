@@ -9,9 +9,11 @@ from multiprocessing import Pool
 from io import BytesIO
 import tempfile
 import random
+import logging
+import subprocess
 
 ### SETUP
-root_folder = r"D:\___WodyPolskie\Ostrzeszow\przetwarzanie"
+root_folder = r"D:\___WodyPolskie\6_Leszno\uzupelnianie\test"
 las_folder = os.path.join(root_folder, "las")
 poly_folder = os.path.join(root_folder, "poly")
 out_folder = os.path.join(root_folder, "out")
@@ -38,19 +40,20 @@ def check_points(args): # Check if points are inside of the polygon. Function ne
 
 def process_scans(scan_path, name):
     scan = laspy.read(scan_path)
-    try:
-        scan.intensity[:] = 0
-        scan.return_number[:] = 0
-        scan.number_of_returns[:] = 0
-        scan.scan_direction_flag[:] = 0
-        scan.scan_angle_rank[:] = 0
-        scan.user_data[:] = 0
-        scan.point_source_id[:] = 0
-        scan.gps_time[:] = 0
-    except:
-        pass
+    print("LOADED POINT CLOUD")
+    #try:
+    #    scan.intensity[:] = 0
+    #    scan.return_number[:] = 0
+    #    scan.number_of_returns[:] = 0
+    #    scan.scan_direction_flag[:] = 0
+    #    scan.scan_angle_rank[:] = 0
+    #    scan.user_data[:] = 0
+    #    scan.point_source_id[:] = 0
+    #    scan.gps_time[:] = 0
+    #except:
+    #    pass
 
-    scan.write(scan_path)
+    #scan.write(scan_path)
 
     points = np.vstack((scan.x, scan.y)).T # Prepare data for shapely
     poly = gpd.read_file(poly_folder + "/" + name.split(".")[0] + ".shp") # Import polygons based on scan name
@@ -68,6 +71,7 @@ def process_scans(scan_path, name):
         ) # Mask points that are inside of polygons bbox
 
         filtered_points = points[polygon_mask] # Select points that area inside polygon
+        print("FILTERED POINTS")
 
         num_cores = 32
         chunks = np.array_split(filtered_points, num_cores)
@@ -210,50 +214,70 @@ def convert(sampled_pts, sampled_cols, temp_name, temp_dir):
 if __name__ == "__main__":
     check_root()
 
-    las_files = [scan for scan in os.listdir(las_folder) if scan.endswith(".las")] #List with laser scans
+    las_files = [scan for scan in os.listdir(las_folder) if scan.endswith(".laz")] #List with laser scans
 
     for scan in tqdm(las_files, total = len(las_files)): # For each scan in dir
         END = False
         clipped_scans = {} # Create a dict for clipped scans in memory
 
         las_path = os.path.join(las_folder, scan)
+        print("BEFORE PROCESSING")
         process_scans(las_path, scan) # Clip scans
+        print("STOPPED PROCESSING")
 
+        # Process within a temporary directory
+        scan = scan.split(".")[0] + ".las"
         with tempfile.TemporaryDirectory() as temp_dir:
             las_files = []
             las_files.append(las_path)
+            
+            # For each clipped scan in dict
+            for key, value in clipped_scans.items():
+                try:
+                    # Load and return scan as a PyVista object
+                    las = load_data(value)
 
-            for key, value in clipped_scans.items(): # For each clipped scan in dict
-                las = load_data(value)
+                    key_area = key.split("_")[0]
+                    poly_area = int(key_area)
+                    n_sample = poly_area * 100 # Sampled points based on area
+                    sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
 
-                key_area = key.split("_")[0]
-                poly_area = int(key_area)
-                n_sample = poly_area * 100 # Sampled points based on area
-                sampled_pts, sampled_cols = sample_points_on_mesh(las, n_sample) # Sample points
+                    # Convert back to laspy format
+                    file_path = convert(sampled_pts, sampled_cols, key, temp_dir)
+                    las_files.append(file_path)
+                except Exception as e:
+                    logging.error(f"Failed to sample or convert {value}: {e}")
 
-                file_path = convert(sampled_pts, sampled_cols, key, temp_dir) # Convert back to laspy format
-                las_files.append(file_path)
+            # Flag to make sure that the command doenst exceed its character limit
+            MAX_FILES = 120
 
-                MAX_FILES = 120
+            # Merge all parts together, If there are too many, split into parts
             try: 
                 if len(las_files) > MAX_FILES:
                     temp_scan = scan.split(".")[0] + "temp." + scan.split(".")[1]
                     temp_path = os.path.join(out_folder, temp_scan)
                     las_files.append(temp_path)
 
+                    # Split command into chunks
                     chunks = [las_files[i:i + MAX_FILES] for i in range(0, len(las_files), MAX_FILES)]
                     intermediate_outputs = []
 
-                    for i, chunk in enumerate(chunks[:-1]): #all except last chunk
+                    # All except last chunk
+                    for i, chunk in enumerate(chunks[:-1]): 
                         out_temp = os.path.join(out_folder, f"chunk_{i}.las")
                         intermediate_outputs.append(out_temp)
 
-                        cmd = 'las2las -i ' + ' '.join(chunk) + f' -merged -target_epsg 2180 -o "{out_temp}"'
-                        os.system(cmd)
+                        #cmd = 'las2las -i ' + ' '.join(chunk) + f' -merged -target_epsg 2180 -o "{out_temp}"'
+                        #os.system(cmd)
+                        cmd = ['lasmerge', '-i'] + chunk + ["-o", out_temp]
+                        subprocess.run(cmd)
 
+                    # Add the last chunk
                     final_chunk = chunks[-1] + intermediate_outputs
-                    cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in final_chunk) + f' -merged -target_epsg 2180 -o "{os.path.join(out_folder, scan)}"'
-                    os.system(cmd)
+                    #cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in final_chunk) + f' -merged -target_epsg 2180 -o "{os.path.join(filled_folder, scan)}"'
+                    #os.system(cmd)
+                    cmd = ['lasmerge', '-i'] + final_chunk + ["-o", os.path.join(out_folder, scan)]
+                    subprocess.run(cmd)
 
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
@@ -262,8 +286,10 @@ if __name__ == "__main__":
                             os.remove(f)
 
                 else:
-                    cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in las_files) + f' -merged -target_epsg 2180 -o "{os.path.join(out_folder, scan)}"'
-                    os.system(cmd)
+                    #cmd = 'las2las -i ' + ' '.join(f'"{f}"' for f in las_files) + f' -merged -target_epsg 2180 -o "{os.path.join(filled_folder, scan)}"'
+                    #os.system(cmd)
+                    cmd = ['lasmerge', '-i'] + las_files + ["-o", os.path.join(out_folder, scan)]
+                    subprocess.run(cmd)
                 
-            except:
-                print("FAILED_TO_SAVE")
+            except Exception as e:
+                logging.error(f"Failed to merge {scan}: {e}")

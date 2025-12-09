@@ -106,6 +106,7 @@ def main():
     filepath = os.path.join(directory, "Poland_Airspaces_TODAY.txt")
     output = os.path.join(directory, "out")
     url = "http://www.lotnik.org/strefy/Poland_Airspaces_TODAY.txt"
+    #url = "https://lotnik.org/strefy/Poland_Airspaces.txt"
     download_file(url, filepath)
     content = read_file(filepath)
     zones = parse_blocks(content)

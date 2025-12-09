@@ -11,10 +11,13 @@ import os
 from tqdm import tqdm
 import tempfile
 import pandas as pd
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
 ### Setup ###
-root_folder = r"D:\___WodyPolskie\Gora\Przetworzone\test\Nowy_folder"
-las_folder = os.path.join(root_folder, "las")
+root_folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie"
+#las_folder = os.path.join(root_folder, "out")
+las_folder = r"V:\7_NW_Krotoszyn\Chmura punktow"
 poly_folder = os.path.join(root_folder, "poly")
 tif_folder = os.path.join(root_folder, "tif")
 
@@ -35,44 +38,52 @@ def check_root():
         raise SystemExit(0)
             
 def process_scans(scan):
-    las_path = os.path.join(las_folder, scan)
-    las = laspy.read(las_path)
-
-    points = np.column_stack((las.x, las.y, las.z)) # Convert to numpy vertical array
-
-    cell_size = 1 # Size of the resulting raster
-
-    x = points[:, 0]
-    y = points[:, 1]
-
-    xmin, xmax = x.min(), x.max()
-    ymin, ymax = y.min(), y.max()
-
-    x_edges = np.arange(xmin, xmax + cell_size, cell_size) # Create a bbox for the raster
-    y_edges = np.arange(ymin, ymax + cell_size, cell_size)
-
-    density, x_edges, y_edges = np.histogram2d(x, y, bins = [x_edges, y_edges])
-
-    density_raster = np.flipud(density.T) # Flip it vertically, cause for whatever reason its upside down
-
-    binary_raster = np.where((density_raster > 0) & (density_raster < 50), 1, 0) # Get only values that are within the scan (>0) and lower than our goal (<50) and make it binary
-
-    transform = from_origin(xmin, ymax, cell_size, cell_size) # Transform it back to original location
-
     raster_path = os.path.join(tif_folder, scan.split(".")[0] + ".tif")
+    file = Path(raster_path)
 
-    with rasterio.open( # Save the binary raster
-        raster_path,
-        "w",
-        driver = "GTiff",
-        height = binary_raster.shape[0],
-        width = binary_raster.shape[1],
-        count = 1,
-        dtype = binary_raster.dtype,
-        crs = "EPSG:2180",
-        transform = transform
-    ) as dst:
-        dst.write(binary_raster, 1)
+    if file.is_file():
+        pass
+    else:
+        las_path = os.path.join(las_folder, scan)
+        las = laspy.read(las_path)
+
+        points = np.column_stack((las.x, las.y, las.z)) # Convert to numpy vertical array
+
+        cell_size = 1 # Size of the resulting raster
+
+        x = points[:, 0]
+        y = points[:, 1]
+
+        xmin, xmax = x.min(), x.max()
+        ymin, ymax = y.min(), y.max()
+
+        x_edges = np.arange(xmin, xmax + cell_size, cell_size) # Create a bbox for the raster
+        y_edges = np.arange(ymin, ymax + cell_size, cell_size)
+
+        density, x_edges, y_edges = np.histogram2d(x, y, bins = [x_edges, y_edges])
+
+        density_raster = np.flipud(density.T) # Flip it vertically, cause for whatever reason its upside down
+
+        #binary_raster = np.where((density_raster > 0) & (density_raster < 50), 1, 0) # Get only values that are within the scan (>0) and lower than our goal (<50) and make it binary
+        binary_raster = np.where((density_raster < 50), 1, 0) # Get only values that are within the scan (>0) and lower than our goal (<50) and make it binary
+        binary_raster = binary_raster.astype("uint8") 
+
+        transform = from_origin(xmin, ymax, cell_size, cell_size) # Transform it back to original location
+
+        raster_path = os.path.join(tif_folder, scan.split(".")[0] + ".tif")
+
+        with rasterio.open( # Save the binary raster
+            raster_path,
+            "w",
+            driver = "GTiff",
+            height = binary_raster.shape[0],
+            width = binary_raster.shape[1],
+            count = 1,
+            dtype = binary_raster.dtype,
+            crs = "EPSG:2180",
+            transform = transform
+        ) as dst:
+            dst.write(binary_raster, 1)
 
 def process_raster(tif):
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -175,9 +186,19 @@ def process_raster(tif):
 
 if __name__ == "__main__":
     check_root()
-    scan_files = [scan_file for scan_file in os.listdir(las_folder) if scan_file.endswith(".las")]
-
+    scan_files = [scan_file for scan_file in os.listdir(las_folder) if scan_file.endswith(".laz")]
+    """
     for scan in tqdm(scan_files, total = len(scan_files)):
         tif = scan.split(".")[0] + ".tif"
         process_scans(scan)
-        process_raster(tif)
+        #process_raster(tif)
+    """
+
+    with ProcessPoolExecutor(max_workers = 10) as executor:
+        futures = []
+
+        for scan in scan_files:
+            futures.append(executor.submit(process_scans, scan))
+
+        for f in tqdm(futures, desc = "Detecting low density zones"):
+            f.result()

@@ -10,12 +10,13 @@ import shutil
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
-root_folder = r"D:\___Lasy\sprawdzanie\clip"
+root_folder = r"D:\___WodyPolskie\poprawa_chmur\milicz\joining"
 
 tif_folder = os.path.join(root_folder, "ortho")
 out_folder = os.path.join(root_folder, "clipped_tif")
 joined_folder = os.path.join(root_folder, "joined_tif")
-shapefile = os.path.join(root_folder, "clip_lasy.shp")
+shapefile = r"D:\1111Przetwarzanie\PL1992_5000_1.shp"
+#shapefile = os.path.join(root_folder, "clip_lasy.shp")
 
 tif_files = [f for f in os.listdir(tif_folder) if f.endswith(".tif")]
 folder_list = [tif_folder, out_folder, joined_folder]
@@ -54,15 +55,15 @@ def process_raster(tif):
     #intersecting_polygons = shape[shape["layer"] == tif_path.split("\\")[-1].split(".")[0]]
 
     for rows, cols in intersecting_polygons.iterrows():
-        #print(cols['godlo'])
+        print(cols['godlo'])
         single_shape = gpd.GeoDataFrame([cols], crs = "EPSG:2180")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_vector = os.path.join(tmpdir, "cutline.geojson")
             single_shape.to_file(temp_vector, driver = "GeoJSON")
 
-            #clip_name = cols["godlo"]
-            clip_name = cols["layer"]
+            clip_name = cols["godlo"]
+            #clip_name = cols["layer"]
             out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + clip_name + ".tif")
             #out_path = os.path.join(out_folder, clip_name + ".tif")
 
@@ -143,7 +144,7 @@ def main():
             f.result()
         #list(tqdm(executor.map(process_raster, tif_files), total = len(tif_files), desc = "Clipping"))
     
-    merge_tiffs()
+    #merge_tiffs()
 
 if __name__ == "__main__":
     main()

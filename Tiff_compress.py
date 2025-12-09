@@ -1,5 +1,7 @@
 import os
 from osgeo import gdal
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
 
 # Empty lists
 tif_files = []
@@ -50,20 +52,20 @@ def get_output():
     return out_path
 
 
-def compress(file_list, path, output_path, epsg_code):
+def compress(file, path, output_path, epsg_code):
     """Compress .tif files"""
-    for file in file_list:
-        print(f"Started compressing {file}")
-        source = os.path.join(path, file)
-        target = os.path.join(output_path, file)
+    #for file in file_list:
+    print(f"Started compressing {file}")
+    source = os.path.join(path, file)
+    target = os.path.join(output_path, file)
 
-        try:
-            translate_options = gdal.TranslateOptions(format = "GTiff", outputSRS = f"EPSG:{epsg_code}", creationOptions = ["COMPRESS=LZW", "PREDICTOR=2", "BIGTIFF=YES"], callback = gdal.TermProgress)
-            gdal.Translate(target, source, options = translate_options)
-            converted_files.append(target)
-            print(f"Finished compressing {target}")
-        except Exception as e:
-            print(f"Error compressing {file}: {e}")
+    try:
+        translate_options = gdal.TranslateOptions(format = "GTiff", outputSRS = f"EPSG:{epsg_code}", creationOptions = ["COMPRESS=LZW", "PREDICTOR=2", "BIGTIFF=YES"], callback = gdal.TermProgress)
+        gdal.Translate(target, source, options = translate_options)
+        converted_files.append(target)
+        print(f"Finished compressing {target}")
+    except Exception as e:
+        print(f"Error compressing {file}: {e}")
 
 def generate_overviews(converted_files):
     """Generate overviews for compressed files"""
@@ -89,11 +91,23 @@ def main():
         return
     epsg_code = input("Enter an EPSG code (e.g. 2180) \n")
     input(f"\n \n Found {len(tif_files)} files. Press any key to continue. \n \n Press Ctrl + C to abort \n \n")
-    compress(tif_files, folder_path, output_path, epsg_code)
-    generate_overviews(converted_files)
-    print(f"Started with {tif_files}")
-    print(f"Compressed following files {converted_files}")
-    print(f"Built overviews for following files {built_overviews}")
+    #compress(tif_files, folder_path, output_path, epsg_code)
+
+
+    with ProcessPoolExecutor(max_workers = 10) as executor:
+
+        futures = []
+
+        for tif in tif_files:
+            futures.append(executor.submit(compress, tif, folder_path, output_path, epsg_code))
+        
+        for f in tqdm(as_completed(futures), total = len(tif_files), desc = "Compressing"):
+            f.result()
+
+    #generate_overviews(converted_files)
+    #print(f"Started with {tif_files}")
+    #print(f"Compressed following files {converted_files}")
+    #print(f"Built overviews for following files {built_overviews}")
 
 if __name__ == "__main__":
     main()
