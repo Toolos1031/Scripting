@@ -7,16 +7,17 @@ from shapely.geometry import box
 import tempfile
 from collections import defaultdict
 import shutil
+import random
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
-root_folder = r"D:\___WodyPolskie\poprawa_chmur\milicz\joining"
+root_folder = r"D:\___WodyPolskie\clipping_rastry\wypelnianie"
 
-tif_folder = os.path.join(root_folder, "ortho")
-out_folder = os.path.join(root_folder, "clipped_tif")
+tif_folder = os.path.join(root_folder, "clipped_pobrane")
+out_folder = os.path.join(root_folder, "pobrane_clipped_godlo")
 joined_folder = os.path.join(root_folder, "joined_tif")
 shapefile = r"D:\1111Przetwarzanie\PL1992_5000_1.shp"
-#shapefile = os.path.join(root_folder, "clip_lasy.shp")
+#shapefile = os.path.join(root_folder, "dziury.gpkg")
 
 tif_files = [f for f in os.listdir(tif_folder) if f.endswith(".tif")]
 folder_list = [tif_folder, out_folder, joined_folder]
@@ -54,43 +55,49 @@ def process_raster(tif):
     intersecting_polygons = shape[shape.intersects(bbox)]
     #intersecting_polygons = shape[shape["layer"] == tif_path.split("\\")[-1].split(".")[0]]
 
-    for rows, cols in intersecting_polygons.iterrows():
-        print(cols['godlo'])
-        single_shape = gpd.GeoDataFrame([cols], crs = "EPSG:2180")
+    try:
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            temp_vector = os.path.join(tmpdir, "cutline.geojson")
-            single_shape.to_file(temp_vector, driver = "GeoJSON")
+        for rows, cols in intersecting_polygons.iterrows():
+            #print(cols['godlo'])
+            single_shape = gpd.GeoDataFrame([cols], crs = "EPSG:2180")
 
-            clip_name = cols["godlo"]
-            #clip_name = cols["layer"]
-            out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + clip_name + ".tif")
-            #out_path = os.path.join(out_folder, clip_name + ".tif")
+            with tempfile.TemporaryDirectory() as tmpdir:
+                temp_vector = os.path.join(tmpdir, "cutline.geojson")
+                single_shape.to_file(temp_vector, driver = "GeoJSON")
 
-            #gdal.SetConfigOption("GDAL_CACHEMAX", str(int(512)))
+                #clip_name = f"{cols['numer']}_{random.randint(1000,9999)}"
+                clip_name = cols["godlo"]
+                out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + clip_name + ".tif")
+                #out_path = os.path.join(out_folder, clip_name + ".tif")
 
-            overview = gdal.Open(tif_path, 1)
-            if overview.GetRasterBand(1).GetOverviewCount() == 0:
-                gdal.SetConfigOption("COMPRESS_OVERVIEW", "LZW")
-                overview.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64], gdal.TermProgress)
-            del overview
+                #gdal.SetConfigOption("GDAL_CACHEMAX", str(int(512)))
 
-            
+                overview = gdal.Open(tif_path, 1)
+                if overview.GetRasterBand(1).GetOverviewCount() == 0:
+                    gdal.SetConfigOption("COMPRESS_OVERVIEW", "LZW")
+                    overview.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64], gdal.TermProgress)
+                del overview
 
-            warp_options = gdal.WarpOptions(
-                format = "GTiff",
-                cutlineDSName = temp_vector,
-                multithread = True,
-                creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES", "PREDICTOR=2", "BLOCKXSIZE=1024", "BLOCKYSIZE=1024", "NUM_THREADS=ALL_CPUS"],
-                dstSRS = "EPSG:2180",
-                cropToCutline = True,
-                callback = gdal.TermProgress
-            )
+                
 
-            warp = gdal.Warp(out_path, tif_path, options = warp_options)
-            warp.FlushCache()
-            warp = None
-            
+                warp_options = gdal.WarpOptions(
+                    format = "GTiff",
+                    cutlineDSName = temp_vector,
+                    multithread = True,
+                    creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES", "PREDICTOR=2", "BLOCKXSIZE=1024", "BLOCKYSIZE=1024", "NUM_THREADS=ALL_CPUS"],
+                    dstSRS = "EPSG:2180",
+                    cropToCutline = True,
+                    callback = gdal.TermProgress
+                )
+
+                warp = gdal.Warp(out_path, tif_path, options = warp_options)
+                warp.FlushCache()
+                warp = None
+                
+
+    except Exception as e:
+        print(f"Error processing {tif_path} with polygon {cols['numer']}: {e}")
+
 def merge_group(godlo, file_list, output_path):
     print(f"merging {godlo}")
     if len(file_list) == 1:
@@ -103,7 +110,8 @@ def merge_group(godlo, file_list, output_path):
             creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES"],
             warpOptions = ["NUM_THREADS=5"],
             dstSRS = "EPSG:2180",
-            callback = gdal.TermProgress
+            callback = gdal.TermProgress,
+            srcNodata = 0
         )
     
         warp = gdal.Warp(output_path, file_list, options = warp_options)
@@ -133,18 +141,18 @@ def merge_tiffs():
 def main():
     check_root()
 
-    with ProcessPoolExecutor(max_workers = 5) as executor:
+    #with ProcessPoolExecutor(max_workers = 5) as executor:
 
-        futures = []
+    #    futures = []
 
-        for tif in tif_files:
-            futures.append(executor.submit(process_raster, tif))
+    #    for tif in tif_files:
+    #        futures.append(executor.submit(process_raster, tif))
         
-        for f in tqdm(as_completed(futures), total = len(tif_files), desc = "Clipping"):
-            f.result()
+    #    for f in tqdm(as_completed(futures), total = len(tif_files), desc = "Clipping"):
+    #        f.result()
         #list(tqdm(executor.map(process_raster, tif_files), total = len(tif_files), desc = "Clipping"))
     
-    #merge_tiffs()
+    merge_tiffs()
 
 if __name__ == "__main__":
     main()

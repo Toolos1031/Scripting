@@ -112,127 +112,136 @@ def fill_holes_locally(
 # Process each raster file
 for file_path in tqdm(rasters, total = len(rasters), desc = "Processing rasters"):
 
-    with rasterio.open(file_path) as src:
+    file_name = file_path.split("\\")[-1]
+    out_path = os.path.join(out_folder, file_name)
 
-        raster_name = file_path.split("\\")[-1].split(".")[0]
+    if not os.path.isfile(out_path):
 
-        # Load vector data
-        vector = gpd.read_file(shape_path)
-        tile = gpd.read_file(tile_path)
-        selected_tile = tile[tile["godlo"] == raster_name]
+        try:
 
-        # Create clipping geometry from raster bounds
-        clip_geom = box(src.bounds.left, src.bounds.bottom, src.bounds.right, src.bounds.top)
-        clipped = vector.clip(clip_geom)
-        clipped_buffered = clipped.buffer(15)
+            with rasterio.open(file_path) as src:
 
-        clipped_vector = clipped_buffered.clip(selected_tile)
-        clipped_vector_not_buffered = clipped.clip(selected_tile)
+                raster_name = file_path.split("\\")[-1].split(".")[0]
 
-        # Prepare geometries for rasterio rasterization
-        geom = [shapes for shapes in clipped_vector.geometry]
-        not_buffered_geom = [shapes for shapes in clipped_vector_not_buffered.geometry]
-        
-        # Read original masks
-        raster_mask = src.read_masks()
+                # Load vector data
+                vector = gpd.read_file(shape_path)
+                tile = gpd.read_file(tile_path)
+                selected_tile = tile[tile["godlo"] == raster_name]
 
-        # Invert mask: 1 = hole, 255 = valid data. Working with first band only
-        switched_mask = np.where(raster_mask[0] == 0, 1, raster_mask[0])
+                # Create clipping geometry from raster bounds
+                clip_geom = box(src.bounds.left, src.bounds.bottom, src.bounds.right, src.bounds.top)
+                clipped = vector.clip(clip_geom)
+                clipped_buffered = clipped.buffer(15)
 
-        # Create shape mask from vector geometries
-        shape_mask = features.rasterize(shapes = geom, out_shape = (src.height, src.width), transform = src.transform, all_touched = True, fill = 0, dtype = rasterio.uint8)
-        non_buff_shape_mask = features.rasterize(shapes = not_buffered_geom, out_shape = (src.height, src.width), transform = src.transform, all_touched = True, fill = 0, dtype = rasterio.uint8)
+                clipped_vector = clipped_buffered.clip(selected_tile)
+                clipped_vector_not_buffered = clipped.clip(selected_tile)
 
-        # Combine both masks: 255 = valid data, 0 = hole, 1 = outside polygon, then turn to boolean
-        combined_mask = (switched_mask * shape_mask)
+                # Prepare geometries for rasterio rasterization
+                geom = [shapes for shapes in clipped_vector.geometry]
+                not_buffered_geom = [shapes for shapes in clipped_vector_not_buffered.geometry]
+                
+                # Read original masks
+                raster_mask = src.read_masks()
 
-        combined_switched = np.where((combined_mask == 0) | (combined_mask == 1), combined_mask^1, combined_mask)
-    
-        combined_bool = np.where(combined_switched == 0, 0, 1)
+                # Invert mask: 1 = hole, 255 = valid data. Working with first band only
+                switched_mask = np.where(raster_mask[0] == 0, 1, raster_mask[0])
 
-        # Cleanup intermediate variables
-        del geom, clip_geom, clipped, clipped_buffered, clipped_vector, raster_mask, switched_mask, shape_mask, combined_mask, combined_switched
-        gc.collect()
+                # Create shape mask from vector geometries
+                shape_mask = features.rasterize(shapes = geom, out_shape = (src.height, src.width), transform = src.transform, all_touched = True, fill = 0, dtype = rasterio.uint8)
+                non_buff_shape_mask = features.rasterize(shapes = not_buffered_geom, out_shape = (src.height, src.width), transform = src.transform, all_touched = True, fill = 0, dtype = rasterio.uint8)
 
-        # Downsample image and masks for hole filling
-        image_full = src.read()
-        bands, H, W = image_full.shape
-        holes_full = (combined_bool == 0)
+                # Combine both masks: 255 = valid data, 0 = hole, 1 = outside polygon, then turn to boolean
+                combined_mask = (switched_mask * shape_mask)
 
-        # Trim dimensions to be divisible by FACTOR
-        H_trim = (H // FACTOR) * FACTOR
-        W_trim = (W // FACTOR) * FACTOR
+                combined_switched = np.where((combined_mask == 0) | (combined_mask == 1), combined_mask^1, combined_mask)
+            
+                combined_bool = np.where(combined_switched == 0, 0, 1)
 
-        # Trim images and masks to trimmed dimensions
-        image_trim = image_full[:, :H_trim, :W_trim]
-        holes_trim = combined_bool[:H_trim, :W_trim]
+                # Cleanup intermediate variables
+                del geom, clip_geom, clipped, clipped_buffered, clipped_vector, raster_mask, switched_mask, shape_mask, combined_mask, combined_switched
+                gc.collect()
 
-        # Downsample image and holes mask
-        image_lr = image_trim[:, ::FACTOR, ::FACTOR]
-        H_lr, W_lr = image_lr.shape[1], image_lr.shape[2]
+                # Downsample image and masks for hole filling
+                image_full = src.read()
+                bands, H, W = image_full.shape
+                holes_full = (combined_bool == 0)
 
-        holes_lr = holes_trim.reshape(
-            H_lr, FACTOR,
-            W_lr, FACTOR
-        ).any(axis = (1, 3))
+                # Trim dimensions to be divisible by FACTOR
+                H_trim = (H // FACTOR) * FACTOR
+                W_trim = (W // FACTOR) * FACTOR
 
-        # Create low-resolution combined boolean mask
-        combined_bool_lr = np.where(holes_lr, 1, 0).astype(np.uint8)
+                # Trim images and masks to trimmed dimensions
+                image_trim = image_full[:, :H_trim, :W_trim]
+                holes_trim = combined_bool[:H_trim, :W_trim]
 
-        # Fill holes locally
-        filled = fill_holes_locally(
-            clipped_image=image_lr,
-            combined_mask_lr=combined_bool_lr,
-            max_search_distance=MAX_SEARCH_DISTANCE // FACTOR,
-            margin=MARGIN
-        )
+                # Downsample image and holes mask
+                image_lr = image_trim[:, ::FACTOR, ::FACTOR]
+                H_lr, W_lr = image_lr.shape[1], image_lr.shape[2]
 
-        # Upsample filled image back to original resolution
-        filled_lr_up = filled.repeat(FACTOR, axis = 1).repeat(FACTOR, axis = 2)
+                holes_lr = holes_trim.reshape(
+                    H_lr, FACTOR,
+                    W_lr, FACTOR
+                ).any(axis = (1, 3))
 
-        # Integrate filled areas back into full-resolution image
-        holes_full_trim = holes_full[:H_trim, :W_trim]
+                # Create low-resolution combined boolean mask
+                combined_bool_lr = np.where(holes_lr, 1, 0).astype(np.uint8)
 
-        # Replace hole areas in full-resolution image with filled data
-        image_full[:, :H_trim, :W_trim] = np.where(
-            holes_full_trim[np.newaxis, :, :],
-            filled_lr_up,
-            image_full[:, :H_trim, :W_trim]
-        )
+                # Fill holes locally
+                filled = fill_holes_locally(
+                    clipped_image=image_lr,
+                    combined_mask_lr=combined_bool_lr,
+                    max_search_distance=MAX_SEARCH_DISTANCE // FACTOR,
+                    margin=MARGIN
+                )
 
-        del combined_bool
-        gc.collect()
-        
-        # Create final clipped image using non-buffered shape mask
-        mask_bool = non_buff_shape_mask.astype(bool)
-        nodata = src.nodata if src.nodata is not None else 0
-        clipped_image = np.where(mask_bool, image_full, nodata).astype(filled.dtype)
+                # Upsample filled image back to original resolution
+                filled_lr_up = filled.repeat(FACTOR, axis = 1).repeat(FACTOR, axis = 2)
 
-        # Prepare output metadata
-        out_meta = src.meta.copy()
-        out_meta.update({
-            "height": clipped_image.shape[1],
-            "width": clipped_image.shape[2],
-            "count": clipped_image.shape[0],
-            "dtype": RASTER_DTYPE,
-            #"nodata": nodata
-            "compress": COMPRESS,
-            "tiled": TILED,
-            "blockxsize": BLOCK_SIZE,
-            "blockysize": BLOCK_SIZE,
-            "BIGTIFF": BIGTIFF,
-            "SPARSE_OK": SPARSE_OK
-        })
+                # Integrate filled areas back into full-resolution image
+                holes_full_trim = holes_full[:H_trim, :W_trim]
 
-        file_name = file_path.split("\\")[-1]
-        out_path = os.path.join(out_folder, file_name)
-        
-        # Write output raster
-        with rasterio.open(
-            out_path,
-            "w",
-            **out_meta
-        ) as dst:
-            for idx, array in enumerate(clipped_image, start=1):
-                dst.write(array, idx)
+                # Replace hole areas in full-resolution image with filled data
+                image_full[:, :H_trim, :W_trim] = np.where(
+                    holes_full_trim[np.newaxis, :, :],
+                    filled_lr_up,
+                    image_full[:, :H_trim, :W_trim]
+                )
 
+                del combined_bool
+                gc.collect()
+                
+                # Create final clipped image using non-buffered shape mask
+                mask_bool = non_buff_shape_mask.astype(bool)
+                nodata = src.nodata if src.nodata is not None else 0
+                clipped_image = np.where(mask_bool, image_full, nodata).astype(filled.dtype)
+
+                # Prepare output metadata
+                out_meta = src.meta.copy()
+                out_meta.update({
+                    "height": clipped_image.shape[1],
+                    "width": clipped_image.shape[2],
+                    "count": clipped_image.shape[0],
+                    "dtype": RASTER_DTYPE,
+                    #"nodata": nodata
+                    "compress": COMPRESS,
+                    "tiled": TILED,
+                    "blockxsize": BLOCK_SIZE,
+                    "blockysize": BLOCK_SIZE,
+                    "BIGTIFF": BIGTIFF,
+                    "SPARSE_OK": SPARSE_OK
+                })
+
+                file_name = file_path.split("\\")[-1]
+                out_path = os.path.join(out_folder, file_name)
+                
+                # Write output raster
+                with rasterio.open(
+                    out_path,
+                    "w",
+                    **out_meta
+                ) as dst:
+                    for idx, array in enumerate(clipped_image, start=1):
+                        dst.write(array, idx)
+
+        except Exception as e:
+            print(f"Error processing {file_path}: {e}")

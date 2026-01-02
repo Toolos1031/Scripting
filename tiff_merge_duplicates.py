@@ -4,19 +4,33 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import shutil
 
-root_folder = r"D:\1111Przetwarzanie\JOINING_TIF\naprawa\joined_tif"
-old_folder = r"D:\1111Przetwarzanie\JOINING_TIF\raw\together"
+root_folder = r"D:\___WodyPolskie\clipping_rastry\Gora\out"
+old_folder = r"D:\___WodyPolskie\clipping_rastry\wypelnianie\joined_tif"
 #old_folder = os.path.join(root_folder, "old")
-merged_folder = r"D:\1111Przetwarzanie\JOINING_TIF\naprawa\merged"
+merged_folder = r"D:\___WodyPolskie\clipping_rastry\Gora\wypelnione"
 #merged_folder = os.path.join(root_folder, "merged")
-
-gdal.TermProgress = gdal.TermProgress_nocb
 
 files = [f for f in os.listdir(root_folder) if f.endswith(".tif")]
 
-def merge_clouds(file, file_list, out):
+def merge_tiffs(file, file_list, out):
 
     print(f"Merging {file}")
+
+    ref_path = file_list[0]
+    ref_ds = gdal.Open(ref_path, gdal.GA_ReadOnly)
+    if ref_ds is None:
+        raise RuntimeError(f"Failed to open reference dataset: {ref_path}")
+    
+    gt = ref_ds.GetGeoTransform()
+    xres = abs(gt[1])
+    yres = abs(gt[5])
+
+    xmin = gt[0]
+    ymax = gt[3]
+    xmax = xmin + ref_ds.RasterXSize * xres
+    ymin = ymax - ref_ds.RasterYSize * yres
+
+    ref_ds = None
 
     warp_options = gdal.WarpOptions(
         format = "GTiff",
@@ -24,7 +38,11 @@ def merge_clouds(file, file_list, out):
         creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES"],
         warpOptions = ["NUM_THREADS=5"],
         dstSRS = "EPSG:2180",
-        callback = gdal.TermProgress
+
+        xRes = xres,
+        yRes = yres,
+        outputBounds = (xmin, ymin, xmax, ymax),
+        srcNodata = 0,
     )
 
     warp = gdal.Warp(out, file_list, options = warp_options)
@@ -44,7 +62,7 @@ def main():
                 file_list.append(f2)
 
                 out = os.path.join(merged_folder, file)
-                futures.append(executor.submit(merge_clouds, file, file_list, out))
+                futures.append(executor.submit(merge_tiffs, file, file_list, out))
             else:
                 shutil.copyfile(os.path.join(root_folder, file), os.path.join(os.path.join(merged_folder, file)))
 

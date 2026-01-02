@@ -1,51 +1,46 @@
-import rasterio
-import numpy as np
-from rasterio.mask import mask
 import geopandas as gpd
+import pandas as pd
+
+### script to count numbers of features with specific attribute in "rodzaj_det" column for "fid" column
+
+shape_path = r"V:\ROBOCZY\ORLEN_Rurociag\Bufory_z_obiektami\OP_detekcje_bufory.shp"
 
 
-raster = rasterio.open(r"D:\___WodyPolskie\poprawa_chmur\krotoszyn\raster.tif")
-shape_path = r"D:\___WodyPolskie\7_Krotoszyn\uzupelnianie\krotoszyn_rowy_buffer.shp"
+gdf = gpd.read_file(shape_path)
+
+#empty dictionary to store counts
+attribute_counts = {}
 
 
-data = raster.read(1)
+for rows, cols in gdf.iterrows():
+    fid_value = cols["fid"]
+    rodzaj_det_value = cols["rodzaj_det"]
 
-vector = gpd.read_file(shape_path)
-geometries = [shapes for shapes in vector.geometry]
+    #initialize fid in dictionary if not already present
+    if fid_value not in attribute_counts:
+        attribute_counts[fid_value] = {
+            "km": cols["km"],
+            "Mauzer": 0,
+            "Kanister": 0,
+            "Wąż": 0,
+            "Inne": 0,
+            "Obiekt budowlany": 0,
+            "Wegetacja": 0,
+            "Potencjalna ingerencja": 0,
+            "Potencjalny wyciek": 0,
+            "Zbiornik wodny": 0
+        }
 
-shape_mask = rasterio.features.rasterize(
-    shapes = geometries,
-    out_shape = raster.shape,
-    transform = raster.transform,
-    all_touched = True,
-    fill = 0,
-    dtype = rasterio.uint8
-)
-shape_mask_bool = shape_mask.astype(bool)
-
-modified_data = np.where(shape_mask_bool, data, 999).astype(data.dtype)
-
-count_0 = np.sum(modified_data == 0)
-count_gt_50 = np.sum((modified_data >= 50) & (modified_data < 999))
-count_lt_50 = np.sum((modified_data > 0) & (modified_data < 50))
-print(f"Count of pixels with value 0: {count_0}, percentage: {(count_0 * 100)/ (count_0 + count_gt_50 + count_lt_50)}%")
-print(f"Count of pixels with value >= 50: {count_gt_50}, percentage: {(count_gt_50 * 100)/ (count_0 + count_gt_50 + count_lt_50)}%")
-print(f"Count of pixels with value > 0 and < 50: {count_lt_50}, percentage: {(count_lt_50 * 100)/ (count_0 + count_gt_50 + count_lt_50)}%")
-print(f"Total valid pixels: {count_0 + count_gt_50 + count_lt_50}")
+    #increment count for the specific attribute
+    if rodzaj_det_value in attribute_counts[fid_value]:
+        attribute_counts[fid_value][rodzaj_det_value] += 1
 
 
-# make raster with pixels with value from 0 to 50 set to 1, others to 0
-binary_raster = np.where((modified_data >= 0) & (modified_data < 50), 1, 0).astype("uint8")
-out_meta = raster.meta.copy()
-out_meta.update({
-    "height": binary_raster.shape[0],
-    "width": binary_raster.shape[1],
-    "count": 1,
-    "dtype": "uint8" 
-})
-out_path = r"D:\___WodyPolskie\poprawa_chmur\krotoszyn\binary_raster2.tif"
-with rasterio.open(out_path, "w", **out_meta) as dest:
-    dest.write(binary_raster, 1)
+columns = ["fid", "km", "Mauzer", "Kanister", "Wąż", "Inne", "Obiekt budowlany", "Wegetacja", "Potencjalna ingerencja", "Potencjalny wyciek", "Zbiornik wodny"]
+new_gdf = pd.DataFrame(columns=columns)
 
-raster.close()
+for fid, counts in attribute_counts.items():
+    object_list = [fid] + [counts[attr] for attr in columns[1:]]
+    new_gdf.loc[len(new_gdf)] = object_list
 
+new_gdf.to_csv(r"V:\ROBOCZY\ORLEN_Rurociag\Bufory_z_obiektami\OP_detekcje_bufory_counts.csv", index = False)
