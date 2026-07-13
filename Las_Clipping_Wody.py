@@ -9,9 +9,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ### SETUP
 
-poly_path = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\braki_buffered.gpkg"
-scan_folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\pobrane"
-out_folder = r"D:\___WodyPolskie\7_Krotoszyn\wypelnianie\clipped"
+poly_path = r"D:\E65-geoster\split_buffer.shp"
+scan_folder = r"D:\E65-geoster\clipped_chmury"
+out_folder = r"D:\E65-geoster\chmury_gotowe"
 
 
 # Function for calculating the extent of a laserscan
@@ -73,16 +73,19 @@ def process_scan(scan_file, shapefile, out_folder):
             clipped_scan = laspy.LasData(scan.header)
             clipped_scan.points = scan.points[final_indices].copy()
 
-            new_filename = os.path.join(out_folder, scan_file.split("\\")[-1].split(".")[0] + "^" + cols["name"] + ".las")
+            new_filename = os.path.join(out_folder, scan_file.split("\\")[-1].split(".")[0] + "^" + str(int(cols["fid"])) + ".las")
             #new_filename = os.path.join(out_folder, f"{cols['layer']}.las")
-            clipped_scan.write(new_filename)
+            try:
+                clipped_scan.write(new_filename)
+            except Exception as e:
+                print(f"Error writing file {new_filename}: {e}")
 
 def main():
     shapefile = gpd.read_file(poly_path)
 
-    scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".laz")]
+    scans = [os.path.join(scan_folder, i) for i in os.listdir(scan_folder) if i.endswith(".las")]
 
-    with ThreadPoolExecutor(max_workers = 20) as executor:
+    with ThreadPoolExecutor(max_workers = 3) as executor:
         futures = []
 
         for scan in scans:

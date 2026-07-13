@@ -11,13 +11,13 @@ import random
 
 gdal.TermProgress = gdal.TermProgress_nocb
 
-root_folder = r"D:\___WodyPolskie\clipping_rastry\wypelnianie"
+root_folder = r"D:\E65-geoster"
 
-tif_folder = os.path.join(root_folder, "clipped_pobrane")
-out_folder = os.path.join(root_folder, "pobrane_clipped_godlo")
+tif_folder = os.path.join(root_folder, "orto")
+out_folder = os.path.join(root_folder, "orto_clipped")
 joined_folder = os.path.join(root_folder, "joined_tif")
-shapefile = r"D:\1111Przetwarzanie\PL1992_5000_1.shp"
-#shapefile = os.path.join(root_folder, "dziury.gpkg")
+#shapefile = r"D:\1111Przetwarzanie\PL1992_5000_1.shp"
+shapefile = os.path.join(root_folder, "buffer_to_clip.shp")
 
 tif_files = [f for f in os.listdir(tif_folder) if f.endswith(".tif")]
 folder_list = [tif_folder, out_folder, joined_folder]
@@ -50,7 +50,12 @@ def process_raster(tif):
     gt = ds.GetGeoTransform()
     cols = ds.RasterXSize
     rows = ds.RasterYSize
-    bbox = box(gt[0], gt[3] + rows * gt[5], gt[0] + cols * gt[1], gt[3])
+    
+    # Create a GeoDataFrame for the raster bounding box and reproject it
+    bbox_geom = box(gt[0], gt[3] + rows * gt[5], gt[0] + cols * gt[1], gt[3])
+    bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs="EPSG:2177")
+    bbox_gdf = bbox_gdf.to_crs(shape.crs)
+    bbox = bbox_gdf.geometry.iloc[0]
 
     intersecting_polygons = shape[shape.intersects(bbox)]
     #intersecting_polygons = shape[shape["layer"] == tif_path.split("\\")[-1].split(".")[0]]
@@ -58,16 +63,17 @@ def process_raster(tif):
     try:
 
         for rows, cols in intersecting_polygons.iterrows():
-            #print(cols['godlo'])
-            single_shape = gpd.GeoDataFrame([cols], crs = "EPSG:2180")
+            print(cols['fid'])
+            single_shape = gpd.GeoDataFrame([cols], crs = "EPSG:2177")
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 temp_vector = os.path.join(tmpdir, "cutline.geojson")
                 single_shape.to_file(temp_vector, driver = "GeoJSON")
 
                 #clip_name = f"{cols['numer']}_{random.randint(1000,9999)}"
-                clip_name = cols["godlo"]
-                out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + clip_name + ".tif")
+                clip_name = int(cols["fid"])
+                #out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + clip_name + ".tif")
+                out_path = os.path.join(out_folder, tif.split(".")[0] + "^" + str(clip_name) + ".tif")
                 #out_path = os.path.join(out_folder, clip_name + ".tif")
 
                 #gdal.SetConfigOption("GDAL_CACHEMAX", str(int(512)))
@@ -85,7 +91,7 @@ def process_raster(tif):
                     cutlineDSName = temp_vector,
                     multithread = True,
                     creationOptions = ["COMPRESS=DEFLATE", "BIGTIFF=YES", "PREDICTOR=2", "BLOCKXSIZE=1024", "BLOCKYSIZE=1024", "NUM_THREADS=ALL_CPUS"],
-                    dstSRS = "EPSG:2180",
+                    dstSRS = "EPSG:2177",
                     cropToCutline = True,
                     callback = gdal.TermProgress
                 )
@@ -96,7 +102,8 @@ def process_raster(tif):
                 
 
     except Exception as e:
-        print(f"Error processing {tif_path} with polygon {cols['numer']}: {e}")
+        #print(f"Error processing {tif_path} with polygon {cols['numer']}: {e}")
+        tqdm.write(f"Error processing {tif_path}: {e}")
 
 def merge_group(godlo, file_list, output_path):
     print(f"merging {godlo}")
@@ -141,18 +148,18 @@ def merge_tiffs():
 def main():
     check_root()
 
-    #with ProcessPoolExecutor(max_workers = 5) as executor:
+    with ProcessPoolExecutor(max_workers = 5) as executor:
 
-    #    futures = []
+        futures = []
 
-    #    for tif in tif_files:
-    #        futures.append(executor.submit(process_raster, tif))
+        for tif in tif_files:
+            futures.append(executor.submit(process_raster, tif))
         
-    #    for f in tqdm(as_completed(futures), total = len(tif_files), desc = "Clipping"):
-    #        f.result()
+        for f in tqdm(as_completed(futures), total = len(tif_files), desc = "Clipping"):
+            f.result()
         #list(tqdm(executor.map(process_raster, tif_files), total = len(tif_files), desc = "Clipping"))
     
-    merge_tiffs()
+    #merge_tiffs()
 
 if __name__ == "__main__":
     main()

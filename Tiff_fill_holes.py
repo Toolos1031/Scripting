@@ -222,7 +222,7 @@ for file_path in tqdm(rasters, total = len(rasters), desc = "Processing rasters"
                     "width": clipped_image.shape[2],
                     "count": clipped_image.shape[0],
                     "dtype": RASTER_DTYPE,
-                    #"nodata": nodata
+                    "nodata": 0,
                     "compress": COMPRESS,
                     "tiled": TILED,
                     "blockxsize": BLOCK_SIZE,
